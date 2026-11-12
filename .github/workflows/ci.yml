@@ -30,8 +30,8 @@ jobs:
 
       - name: Lint and type-check (Python)
         run: |
-          uv run ruff check backend spikes scripts
-          uv run ruff format --check backend spikes scripts
+          uv run ruff check backend spikes scripts reference
+          uv run ruff format --check backend spikes scripts reference
           uv run pyright
 
       - name: Tests

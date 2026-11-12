@@ -64,6 +64,10 @@ def build_exe() -> None:
     )
 
 
+def build_reference_db() -> None:
+    run([sys.executable, str(ROOT / "reference" / "build_reference.py")], ROOT)
+
+
 def add_portable_files() -> None:
     ref_src = ROOT / "reference"
     ref_dst = APP / "reference"
@@ -95,6 +99,7 @@ def main() -> int:
     ver = version()
     if not args.skip_frontend:
         build_frontend()
+    build_reference_db()
     build_exe()
     add_portable_files()
     archive = make_zip(ver)

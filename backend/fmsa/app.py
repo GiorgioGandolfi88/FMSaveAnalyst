@@ -17,6 +17,7 @@ import threading
 import time
 import webbrowser
 from logging.handlers import RotatingFileHandler
+from typing import Any
 
 import uvicorn
 
@@ -91,14 +92,40 @@ def message_box(text: str, title: str = APP_NAME) -> None:
         print(text)
 
 
+class DesktopApi:
+    """Functions the frontend can call through `window.pywebview.api` (native window only)."""
+
+    def __init__(self) -> None:
+        self.window: Any = None
+
+    def pick_save(self, folder: str = "") -> str | None:
+        return self._pick(folder, "Football Manager save (*.fm)")
+
+    def pick_career(self, folder: str = "") -> str | None:
+        return self._pick(folder, "FMSaveAnalyst career (*.fmsa)")
+
+    def _pick(self, folder: str, file_type: str) -> str | None:
+        import webview
+
+        dialog = getattr(getattr(webview, "FileDialog", None), "OPEN", None)
+        if dialog is None:
+            dialog = webview.OPEN_DIALOG  # type: ignore[attr-defined]
+        result = self.window.create_file_dialog(
+            dialog, directory=folder or "", allow_multiple=False, file_types=(file_type,)
+        )
+        return str(result[0]) if result else None
+
+
 def open_window(url: str) -> bool:
     """Show the UI in a native window. Returns False if WebView2 is unavailable."""
     try:
         import webview  # pywebview
 
-        webview.create_window(
+        api = DesktopApi()
+        api.window = webview.create_window(
             f"{APP_NAME} {__version__}",
             url,
+            js_api=api,
             width=1440,
             height=900,
             min_size=(1024, 680),

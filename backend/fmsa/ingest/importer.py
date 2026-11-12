@@ -27,6 +27,7 @@ from fmsa import __version__
 from fmsa.db import SCHEMA_VERSION, open_writer, q
 from fmsa.ingest.readers import ALL_READERS, READER_GROUPS, ReaderSpec
 from fmsa.ingest.store import MergeStats, TableWriter, base_table
+from fmsa.reference import ReferenceChoice, choose_version, competition_names, copy_into_career
 
 log = logging.getLogger(__name__)
 
@@ -55,6 +56,8 @@ class ImportResult:
     game_date: str | None
     seconds: float
     readers: list[ReaderResult]
+    reference_version: str | None = None
+    reference_exact: bool = False
 
     @property
     def failed(self) -> list[ReaderResult]:
@@ -203,12 +206,14 @@ def import_save(
     db_path: Path,
     save_path: Path,
     *,
-    competition_names: Mapping[int, str] | None = None,
+    reference_db: Path | None = None,
+    career_name: str | None = None,
     progress: Progress | None = None,
     readers: tuple[str, ...] | None = None,
 ) -> ImportResult:
     """Import `save_path` into the career database `db_path` (created if missing).
 
+    `reference_db` supplies the names saves do not store (see fmsa.reference).
     `readers` limits the import to some readers (used by tests).
     """
     started = time.perf_counter()
@@ -221,6 +226,8 @@ def import_save(
         sha = _copy_with_hash(save_path, local)
         with _quiet(), fmsave.open(local) as save:
             info = save.info
+        choice = choose_version(reference_db, info.build) if reference_db else None
+        names = competition_names(reference_db, choice) if reference_db and choice else None
 
         conn = open_writer(db_path)
         try:
@@ -229,8 +236,16 @@ def import_save(
             conn.execute("BEGIN")
             try:
                 result = _run_import(
-                    conn, local, save_path, sha, info, groups, total, competition_names, progress
+                    conn, local, save_path, sha, info, groups, total, names, progress
                 )
+                if career_name:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO _meta VALUES ('career_name', ?)", (career_name,)
+                    )
+                if reference_db and choice:
+                    _apply_reference(conn, reference_db, choice)
+                    result.reference_version = choice.version
+                    result.reference_exact = choice.exact
                 conn.execute("COMMIT")
             except BaseException:
                 conn.execute("ROLLBACK")
@@ -329,6 +344,22 @@ def _run_import(
         seconds=0.0,
         readers=results,
     )
+
+
+def _apply_reference(conn: sqlite3.Connection, reference_db: Path, choice: ReferenceChoice) -> None:
+    rows = copy_into_career(conn, reference_db, choice)
+    conn.executemany(
+        "INSERT OR REPLACE INTO _meta VALUES (?, ?)",
+        [("reference_version", choice.version), ("reference_exact", str(int(choice.exact)))],
+    )
+    if "nations" in choice.tables:
+        conn.execute("DROP VIEW IF EXISTS nation_names")
+        conn.execute(
+            "CREATE VIEW nation_names AS SELECT n.nation_id, n.database_id, r.name, "
+            "r.short_name, r.code FROM nations n "
+            "LEFT JOIN ref_nations r ON r.database_id = n.database_id"
+        )
+    log.info("Reference data %s (exact=%s): %d rows", choice.version, choice.exact, rows)
 
 
 def _has_table(conn: sqlite3.Connection, reader: str) -> bool:

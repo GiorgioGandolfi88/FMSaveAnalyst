@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Alert,
+  Badge,
   AppShell,
   Group,
   Loader,
@@ -26,7 +27,7 @@ import { api, type AppInfo, type Settings } from "./api";
 import i18n from "./i18n";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import SettingsPage from "./pages/SettingsPage";
-import StartPage from "./pages/StartPage";
+import CareersPage from "./pages/CareersPage";
 
 type PageKey = "start" | "explore" | "query" | "dashboards" | "ai" | "settings";
 
@@ -38,6 +39,11 @@ const NAV: { key: PageKey; icon: ComponentType<{ size?: number }> }[] = [
   { key: "ai", icon: IconRobot },
   { key: "settings", icon: IconSettings },
 ];
+
+function careerLabel(path: string): string {
+  const file = path.split(/[\\/]/).pop() ?? path;
+  return file.replace(/\.fmsa$/i, "");
+}
 
 export default function App() {
   const { t } = useTranslation();
@@ -58,6 +64,10 @@ export default function App() {
       .catch((e: unknown) => setError(String(e)));
   }, []);
 
+  const reloadSettings = useCallback(() => {
+    api.getSettings().then(setSettings).catch((e: unknown) => setError(String(e)));
+  }, []);
+
   const onSettingsSaved = useCallback((s: Settings) => {
     setSettings(s);
     void i18n.changeLanguage(s.language);
@@ -73,7 +83,9 @@ export default function App() {
   } else if (!settings || !info) {
     content = <Loader />;
   } else if (page === "start") {
-    content = <StartPage settings={settings} />;
+    content = (
+      <CareersPage currentPath={settings.last_career} onCareerChanged={reloadSettings} />
+    );
   } else if (page === "settings") {
     content = <SettingsPage settings={settings} info={info} onSaved={onSettingsSaved} />;
   } else {
@@ -86,9 +98,15 @@ export default function App() {
         <Group h="100%" px="md" justify="space-between">
           <Group gap="xs">
             <Title order={4}>{t("app.name")}</Title>
-            <Text size="sm" c="dimmed" visibleFrom="sm">
-              {t("app.tagline")}
-            </Text>
+            {settings?.last_career ? (
+              <Badge variant="light" size="lg" tt="none">
+                {careerLabel(settings.last_career)}
+              </Badge>
+            ) : (
+              <Text size="sm" c="dimmed" visibleFrom="sm">
+                {t("app.tagline")}
+              </Text>
+            )}
           </Group>
           <ActionIcon
             variant="default"

@@ -82,3 +82,128 @@ export const api = {
   getSettings: () => request<Settings>("GET", "/settings"),
   saveSettings: (s: Settings) => request<Settings>("PUT", "/settings", s),
 };
+
+// ---------------------------------------------------------------- careers & imports
+
+export interface SaveFile {
+  path: string;
+  name: string;
+  size_mb: number;
+  modified: string;
+}
+
+export interface CareerSummary {
+  path: string;
+  name: string;
+  game: string | null;
+  imports: number;
+  first_game_date: string | null;
+  last_game_date: string | null;
+  last_save: string | null;
+  manager: string | null;
+  reference_version: string | null;
+  size_mb: number;
+  error: string | null;
+}
+
+export interface SkippedReader {
+  reader: string;
+  status: string;
+  message: string | null;
+}
+
+export interface ImportRow {
+  import_id: number;
+  file_name: string;
+  game_date: string | null;
+  build: string;
+  finished_at: string | null;
+  duration_s: number | null;
+  status: string;
+  manager_name: string | null;
+  skipped_readers: SkippedReader[];
+}
+
+export interface CareerDetail {
+  summary: CareerSummary;
+  imports: ImportRow[];
+}
+
+export type Verdict = "same" | "uncertain" | "different" | "incompatible";
+
+export interface ContinuityCheck {
+  id: string;
+  outcome: "pass" | "fail" | "warn" | "skip";
+  detail: string;
+  hard: boolean;
+}
+
+export interface ContinuityReport {
+  verdict: Verdict;
+  save_file: string;
+  save_game: string;
+  save_build: string;
+  save_date: string | null;
+  career_date: string | null;
+  checks: ContinuityCheck[];
+  gap_warning: boolean;
+}
+
+export interface JobReader {
+  reader: string;
+  status: string;
+  rows: number;
+  message: string;
+}
+
+export interface Job {
+  id: string;
+  kind: "create" | "update";
+  career_path: string;
+  save_path: string;
+  status: "running" | "done" | "rejected" | "failed";
+  reader: string;
+  done: number;
+  total: number;
+  elapsed_s: number;
+  message: string;
+  result: {
+    import_id: number;
+    file_name: string;
+    game_date: string | null;
+    seconds: number;
+    reference_version: string | null;
+    reference_exact: boolean;
+    readers: JobReader[];
+  } | null;
+}
+
+export const careersApi = {
+  saves: (folder = "") =>
+    request<{ folder: string; saves: SaveFile[] }>(
+      "GET",
+      `/saves${folder ? `?folder=${encodeURIComponent(folder)}` : ""}`,
+    ),
+  list: () => request<CareerSummary[]>("GET", "/careers"),
+  detail: (path: string) =>
+    request<CareerDetail>("GET", `/careers/detail?path=${encodeURIComponent(path)}`),
+  create: (name: string, save_path: string) =>
+    request<Job>("POST", "/careers", { name, save_path }),
+  open: (path: string) => request<CareerSummary>("POST", "/careers/open", { path }),
+  check: (career_path: string, save_path: string) =>
+    request<ContinuityReport>("POST", "/careers/check", { career_path, save_path }),
+  importSave: (career_path: string, save_path: string) =>
+    request<Job>("POST", "/careers/import", { career_path, save_path }),
+  job: (id: string) => request<Job>("GET", `/jobs/${id}`),
+};
+
+// Native file dialogs, available only inside the desktop window (pywebview).
+interface DesktopApi {
+  pick_save: (folder: string) => Promise<string | null>;
+  pick_career: (folder: string) => Promise<string | null>;
+}
+
+export function desktopApi(): DesktopApi | null {
+  const w = window as unknown as { pywebview?: { api?: DesktopApi } };
+  return w.pywebview?.api ?? null;
+}

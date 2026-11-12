@@ -3,7 +3,7 @@
 Analisi in sola lettura, tutta in locale, dei salvataggi di Football Manager 26 e 27, basata sulla libreria [fmsave](https://github.com/rhiever/fmsave).
 *Local, read-only analysis of Football Manager 26 and 27 saves.*
 
-> Stato: in sviluppo (Step 1 – scheletro e packaging). Il piano completo è in `docs/`.
+> Stato: in sviluppo. Funzionano la creazione delle carriere, l'import (anche incrementale) dei salvataggi e il controllo di continuità. Esplorazione dati, dashboard e AI arriveranno nei prossimi step. Documentazione in `docs/`.
 
 ## Uso
 

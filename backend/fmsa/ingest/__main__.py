@@ -13,12 +13,19 @@ import sys
 from pathlib import Path
 
 from fmsa.ingest.importer import ImportRejected, import_save
+from fmsa.paths import AppPaths
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m fmsa.ingest")
     parser.add_argument("career", type=Path, help="career database (.fmsa), created if missing")
     parser.add_argument("saves", type=Path, nargs="+", help="Football Manager save files")
+    parser.add_argument(
+        "--reference",
+        type=Path,
+        default=AppPaths.resolve().default_reference_db,
+        help="reference database with competition/nation/city names",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
     logging.basicConfig(
@@ -29,14 +36,15 @@ def main(argv: list[str] | None = None) -> int:
     for save in args.saves:
         print(f"Importing {save.name} ...", flush=True)
         try:
-            result = import_save(args.career, save)
+            result = import_save(args.career, save, reference_db=args.reference)
         except ImportRejected as exc:
             print(f"  rejected: {exc}")
             status = 1
             continue
         print(
             f"  import #{result.import_id}: {result.game} {result.build} "
-            f"game date {result.game_date}, {result.seconds}s"
+            f"game date {result.game_date}, {result.seconds}s, "
+            f"reference data {result.reference_version or 'none'}"
         )
         for r in result.readers:
             s = r.stats
