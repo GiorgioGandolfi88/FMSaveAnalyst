@@ -27,6 +27,7 @@ import { api, dataApi, type AppInfo, type Schema, type Settings } from "./api";
 import i18n from "./i18n";
 import SettingsPage from "./pages/SettingsPage";
 import AiPage from "./pages/AiPage";
+import ErrorBoundary from "./components/ErrorBoundary";
 import UpdateBanner from "./components/UpdateBanner";
 import CareersPage from "./pages/CareersPage";
 import DashboardsPage from "./pages/DashboardsPage";
@@ -191,7 +192,7 @@ export default function App() {
       </AppShell.Navbar>
       <AppShell.Main>
         {settings && <UpdateBanner enabled={settings.check_updates} />}
-        {content}
+        <ErrorBoundary resetKey={page}>{content}</ErrorBoundary>
       </AppShell.Main>
     </AppShell>
   );

@@ -3,7 +3,11 @@
     "name": "FMSaveAnalyst",
     "tagline": "Analisi in sola lettura dei salvataggi di Football Manager 26 e 27",
     "loading": "Caricamento…",
-    "backendError": "Impossibile contattare il motore locale dell'applicazione."
+    "backendError": "Impossibile contattare il motore locale dell'applicazione.",
+    "uiErrorTitle": "Questa pagina ha avuto un problema",
+    "uiErrorBody": "I tuoi dati non sono stati toccati. Puoi riprovare, ricaricare l'interfaccia o passare a un'altra sezione.",
+    "retry": "Riprova",
+    "reload": "Ricarica"
   },
   "nav": {
     "start": "Carriere",

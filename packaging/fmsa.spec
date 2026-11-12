@@ -6,6 +6,7 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_all, collect_submodules, copy_metadata
 
 ROOT = Path(SPECPATH).parent
+VERSION_FILE = ROOT / "build" / "version_info.txt"  # written by scripts/build.py
 
 datas = [
     (str(ROOT / "frontend" / "dist"), "dist"),
@@ -44,6 +45,7 @@ exe = EXE(
     name="FMSaveAnalyst",
     console=False,
     upx=False,
+    version=str(VERSION_FILE) if VERSION_FILE.is_file() else None,
     disable_windowed_traceback=False,
 )
 

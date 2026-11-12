@@ -3,7 +3,11 @@
     "name": "FMSaveAnalyst",
     "tagline": "Read-only analysis of Football Manager 26 and 27 saves",
     "loading": "Loading…",
-    "backendError": "Cannot reach the application's local engine."
+    "backendError": "Cannot reach the application's local engine.",
+    "uiErrorTitle": "This page ran into a problem",
+    "uiErrorBody": "Your data was not touched. You can retry, reload the interface or switch to another section.",
+    "retry": "Retry",
+    "reload": "Reload"
   },
   "nav": {
     "start": "Careers",
