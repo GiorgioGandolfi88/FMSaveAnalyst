@@ -1,0 +1,17 @@
+{
+  "id": "matches",
+  "order": 10,
+  "title": {"it": "Partite", "en": "Matches"},
+  "description": {"it": "Risultati del club scelto in tutte le partite importate.", "en": "The chosen club's results in every imported match."},
+  "params": ["club"],
+  "widgets": [
+    {"id": "record", "type": "bar", "span": 12, "x": "season", "y": ["won", "drawn", "lost"], "stacked": true,
+     "title": {"it": "Vittorie, pareggi e sconfitte per stagione", "en": "Wins, draws and losses by season"},
+     "sql": "SELECT season_start_year AS season, sum(gf > ga) AS won, sum(gf = ga) AS drawn, sum(gf < ga) AS lost FROM (SELECT season_start_year, CASE WHEN home_club_uid = :club THEN home_goals ELSE away_goals END AS gf, CASE WHEN home_club_uid = :club THEN away_goals ELSE home_goals END AS ga FROM fixtures WHERE played = 1 AND home_goals IS NOT NULL AND season_start_year IS NOT NULL AND (home_club_uid = :club OR away_club_uid = :club)) GROUP BY season_start_year ORDER BY season_start_year"},
+    {"id": "goals", "type": "line", "span": 12, "x": "season", "y": "value", "series": "series",
+     "title": {"it": "Gol fatti e subiti per stagione", "en": "Goals scored and conceded by season"},
+     "sql": "WITH m AS (SELECT season_start_year AS season, CASE WHEN home_club_uid = :club THEN home_goals ELSE away_goals END AS gf, CASE WHEN home_club_uid = :club THEN away_goals ELSE home_goals END AS ga FROM fixtures WHERE played = 1 AND home_goals IS NOT NULL AND season_start_year IS NOT NULL AND (home_club_uid = :club OR away_club_uid = :club)) SELECT season, 'scored' AS series, sum(gf) AS value FROM m GROUP BY season UNION ALL SELECT season, 'conceded', sum(ga) FROM m GROUP BY season ORDER BY season"},
+    {"id": "list", "type": "table", "span": 12, "title": {"it": "Ultime partite", "en": "Latest matches"},
+     "sql": "SELECT f.date, coalesce(c.name, 'Competition ' || coalesce(c.database_id, f.competition_id)) AS competition, f.home_club_name, f.home_goals, f.away_goals, f.away_club_name FROM fixtures f LEFT JOIN competitions c ON c.id = f.competition_id WHERE f.played = 1 AND (f.home_club_uid = :club OR f.away_club_uid = :club) ORDER BY f.date DESC LIMIT 200"}
+  ]
+}

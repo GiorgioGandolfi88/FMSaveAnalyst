@@ -1,0 +1,54 @@
+FMSaveAnalyst - versione portabile
+==================================
+
+AVVIO
+Doppio clic su FMSaveAnalyst.exe. Non serve installare nulla (Windows 10/11, 64 bit).
+
+- Al primo avvio Windows SmartScreen può mostrare "Windows ha protetto il PC":
+  scegli "Ulteriori informazioni" > "Esegui comunque" (l'eseguibile non è firmato).
+- L'interfaccia usa Microsoft Edge WebView2, già presente in Windows 11 e nei
+  Windows 10 aggiornati. Se manca, l'app si apre nel browser predefinito.
+
+PRIMI PASSI
+1. Impostazioni: indica la cartella dei salvataggi di Football Manager
+   (di solito Documenti\Sports Interactive\Football Manager 26\games).
+2. Carriere > Nuova carriera: scegli un salvataggio e dai un nome alla carriera.
+   L'import richiede circa 2-4 minuti.
+3. Dopo ogni stagione giocata: Carriere > "Aggiorna con un nuovo salvataggio".
+   Importa almeno un salvataggio per stagione, perché il gioco conserva le
+   partite solo per circa 18 mesi.
+4. Esplora dati, Query builder, Dashboard e Assistenti AI lavorano sulla
+   carriera aperta.
+
+DOVE SONO I DATI
+- Impostazioni, database delle carriere, query salvate e dashboard personali
+  stanno in %APPDATA%\FMSaveAnalyst.
+- Per tenerli invece qui accanto all'eseguibile (es. su chiavetta USB) crea un
+  file vuoto chiamato "portable.flag" in questa cartella: verrà usata la
+  sottocartella "data".
+- Le chiavi API degli assistenti AI sono salvate nel Gestore credenziali di
+  Windows (voce "FMSaveAnalyst"), mai nei file dell'app.
+- La cartella "reference" contiene il database delle anagrafiche di gioco
+  (competizioni, nazioni, città).
+
+AGGIORNARE L'APP
+Quando esce una nuova versione l'app lo segnala. Scarica il nuovo zip, chiudi
+l'app e sostituisci questa cartella con quella nuova. I tuoi dati restano in
+%APPDATA%\FMSaveAnalyst, oppure nella sottocartella "data": in modalità
+portabile, copiala nella nuova cartella.
+
+PRIVACY
+Tutti i dati restano sul tuo PC. Le uniche connessioni a internet sono:
+- il controllo aggiornamenti su GitHub (disattivabile);
+- gli assistenti AI che configuri tu: inviano al provider solo le tue domande
+  e i risultati delle query che approvi.
+
+----------------------------------------------------------------------------------
+
+FMSaveAnalyst - portable edition
+
+Start: double-click FMSaveAnalyst.exe. Nothing to install.
+Settings, career databases, saved queries and custom dashboards live in
+%APPDATA%\FMSaveAnalyst, or in the "data" subfolder if an empty "portable.flag"
+file exists next to the executable. AI API keys are stored in the Windows
+Credential Manager. Import at least one save per season.

@@ -1,0 +1,17 @@
+{
+  "id": "league",
+  "order": 6,
+  "title": {"it": "Classifiche", "en": "League tables"},
+  "description": {"it": "Classifica attuale della competizione scelta e andamento delle posizioni tra gli import.", "en": "Current table of the chosen competition and positions across imports."},
+  "params": ["competition"],
+  "widgets": [
+    {"id": "table", "type": "table", "span": 12, "title": {"it": "Classifica", "en": "Table"},
+     "sql": "SELECT r.position, r.club_name, r.played, r.won, r.drawn, r.lost, r.goals_for, r.goals_against, r.goals_for - r.goals_against AS goal_difference, r.points FROM league_tables lt JOIN league_tables__rows r ON r._parent_rid = lt._rid WHERE lt.competition_id = :competition ORDER BY lt._rid, r.position"},
+    {"id": "positions", "type": "line", "span": 12, "x": "date", "y": "value", "series": "series", "invert_y": true,
+     "title": {"it": "Posizione a ogni import (le prime 6 di oggi)", "en": "Position at each import (today's top 6)"},
+     "sql": "SELECT i.game_date AS date, r.club_name AS series, r.position AS value FROM league_tables_all lt JOIN league_tables__rows_all r ON r._parent_rid = lt._rid JOIN _imports i ON i.import_id = lt._import_id WHERE lt.competition_id = :competition AND r.club_uid IN (SELECT r2.club_uid FROM league_tables lt2 JOIN league_tables__rows r2 ON r2._parent_rid = lt2._rid WHERE lt2.competition_id = :competition ORDER BY r2.position LIMIT 6) ORDER BY date"},
+    {"id": "goals", "type": "bar", "span": 12, "x": "club_name", "y": ["goals_for", "goals_against"],
+     "title": {"it": "Gol fatti e subiti", "en": "Goals scored and conceded"},
+     "sql": "SELECT r.club_name, r.goals_for, r.goals_against FROM league_tables lt JOIN league_tables__rows r ON r._parent_rid = lt._rid WHERE lt.competition_id = :competition ORDER BY r.position"}
+  ]
+}

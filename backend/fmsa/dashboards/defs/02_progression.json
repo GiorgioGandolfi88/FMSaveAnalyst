@@ -1,0 +1,14 @@
+{
+  "id": "progression",
+  "order": 2,
+  "title": {"it": "Progressione giocatori", "en": "Player progression"},
+  "description": {"it": "Come è cambiata l'abilità attuale dei giocatori del club tra un import e l'altro.", "en": "How the club's players' current ability changed between imports."},
+  "params": ["club"],
+  "widgets": [
+    {"id": "trend", "type": "line", "span": 12, "x": "date", "y": "value", "series": "series",
+     "title": {"it": "Abilità attuale nel tempo (i 6 migliori)", "en": "Current ability over time (top 6)"},
+     "sql": "SELECT i.game_date AS date, a.name AS series, a.ability_current AS value FROM players_all a JOIN _imports i ON i.status = 'ok' AND i.import_id >= a._valid_from AND (a._valid_to IS NULL OR i.import_id < a._valid_to) WHERE (a.uid, a.birth_date) IN (SELECT uid, birth_date FROM players WHERE club_uid = :club ORDER BY ability_current DESC LIMIT 6) ORDER BY date"},
+    {"id": "delta", "type": "table", "span": 12, "title": {"it": "Crescita dal primo import", "en": "Growth since the first import"},
+     "sql": "SELECT name, age, ca_first, ability_current AS ca_now, ability_current - ca_first AS ca_change, first_seen FROM (SELECT p.name, p.age, p.ability_current, (SELECT a.ability_current FROM players_all a WHERE a.uid = p.uid AND a.birth_date = p.birth_date ORDER BY a._valid_from LIMIT 1) AS ca_first, (SELECT i.game_date FROM players_all a JOIN _imports i ON i.import_id = a._valid_from WHERE a.uid = p.uid AND a.birth_date = p.birth_date ORDER BY a._valid_from LIMIT 1) AS first_seen FROM players p WHERE p.club_uid = :club) ORDER BY ca_change DESC"}
+  ]
+}
