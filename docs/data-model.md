@@ -65,3 +65,29 @@ Se nello stesso import ci sono righe con la stessa chiave, ricevono un ordinale,
 ## Misure (FM27, 3 stagioni)
 
 Ogni import richiede circa 2 minuti. Il file `.fmsa` occupa 180 MB dopo il primo import e 630 MB dopo il terzo.
+
+## Accesso in sola lettura e mascheramento (Step 5)
+
+Ogni query dell'interfaccia, delle dashboard e degli assistenti AI passa da `ReadOnlySession` (`backend/fmsa/query/session.py`), che ha tre protezioni indipendenti:
+
+1. il file viene aperto con `mode=ro`;
+2. `PRAGMA query_only = ON`;
+3. un **authorizer SQLite** che permette solo la lettura (SELECT, lettura di colonne, funzioni, CTE ricorsive) e rifiuta tutto il resto prima che venga eseguito: INSERT/UPDATE/DELETE, CREATE/DROP/ALTER, ATTACH, PRAGMA, transazioni, `load_extension`.
+
+È ammessa una sola istruzione per query. Ogni query ha inoltre un limite di tempo (30 s) e di righe (10.000 di default, 200.000 al massimo).
+
+**Mascheramento** (`backend/fmsa/query/masking.py`): le regole sono legate ai percorsi dei campi fmsave (`_columns.source_path`), quindi valgono per ogni tabella che contiene quel campo (`players`, `staff` e i loro storici `_all`). Le colonne nascoste risultano **NULL ovunque compaiano**: in SELECT, WHERE, ORDER BY, JOIN, aggregazioni e sottoquery. Non si possono ricavare filtrando o ordinando.
+
+| Impostazione | Campi nascosti |
+|---|---|
+| Potenziale (attiva di default) | `ability.potential`, `ability.potential_range_code` |
+| Abilità attuale | `ability.current` |
+| Attributi nascosti | `attributes.consistency`, `dirtiness`, `important_matches`, `injury_proneness`, `versatility` |
+| Personalità | tutti i `personality.*` |
+| Colonne extra | voci `tabella.colonna` scelte dall'utente |
+
+Le colonne interne `_hash` e `_key` sono sempre nascoste, perché cambiano ogni volta che cambia un qualunque valore, compresi quelli nascosti.
+
+Limite noto: nelle tabelle `_all`, un valore nascosto che cambia crea comunque una nuova versione del record. Si vede che qualcosa è cambiato, ma non cosa.
+
+Nota: i valori che arrivano da enum testuali di fmsave sono salvati in minuscolo (es. `player_season_history.kind = 'league'`).
