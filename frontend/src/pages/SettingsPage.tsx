@@ -14,7 +14,7 @@ import {
 } from "@mantine/core";
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type AppInfo, type Language, type Settings } from "../api";
+import { api, openExternal, updatesApi, type AppInfo, type Language, type Settings } from "../api";
 import AiSettings from "../components/AiSettings";
 
 interface Props {
@@ -44,6 +44,27 @@ export default function SettingsPage({ settings, info, onSaved }: Props) {
     setDraft((d) => ({ ...d, [key]: value }));
   const setMask = (key: keyof Settings["masking"], value: boolean) =>
     setDraft((d) => ({ ...d, masking: { ...d.masking, [key]: value } }));
+
+  const [checking, setChecking] = useState(false);
+  const [updateMsg, setUpdateMsg] = useState<string | null>(null);
+  const [updateUrl, setUpdateUrl] = useState<string | null>(null);
+  const checkNow = async () => {
+    setChecking(true);
+    setUpdateUrl(null);
+    try {
+      const u = await updatesApi.check(true);
+      if (u.error) setUpdateMsg(t("updates.offline"));
+      else if (u.update_available) {
+        setUpdateMsg(t("updates.available", { version: u.latest }));
+        setUpdateUrl(u.url ?? null);
+      } else if (!u.latest) setUpdateMsg(t("updates.noRelease"));
+      else setUpdateMsg(t("updates.upToDate", { version: u.current }));
+    } catch (e) {
+      setUpdateMsg(String(e));
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -88,6 +109,17 @@ export default function SettingsPage({ settings, info, onSaved }: Props) {
             ]}
           />
         </Stack>
+        <Group gap="xs">
+          <Button size="xs" variant="default" loading={checking} onClick={checkNow}>
+            {t("updates.check")}
+          </Button>
+          {updateMsg && <Text size="sm" c="dimmed">{updateMsg}</Text>}
+          {updateUrl && (
+            <Button size="xs" variant="light" onClick={() => openExternal(updateUrl)}>
+              {t("updates.download")}
+            </Button>
+          )}
+        </Group>
         <Switch
           checked={draft.check_updates}
           onChange={(e) => set("check_updates", e.currentTarget.checked)}

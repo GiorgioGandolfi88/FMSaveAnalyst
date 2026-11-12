@@ -477,3 +477,28 @@ export const aiApi = {
     request<Chat>("POST", `/ai/chats/${id}/approval`, { approve }),
   close: (id: string) => request<{ closed: boolean }>("DELETE", `/ai/chats/${id}`),
 };
+
+// ---------------------------------------------------------------- updates
+
+export interface UpdateInfo {
+  current: string;
+  latest?: string | null;
+  update_available: boolean;
+  url?: string;
+  notes?: string;
+  published_at?: string | null;
+  download_url?: string | null;
+  error?: string | null;
+  disabled?: boolean;
+}
+
+export const updatesApi = {
+  check: (force = false) => request<UpdateInfo>("GET", `/updates${force ? "?force=true" : ""}`),
+};
+
+/** Open a GitHub page in the system browser (desktop window) or a new tab. */
+export function openExternal(url: string): void {
+  const w = window as unknown as { pywebview?: { api?: { open_url?: (u: string) => unknown } } };
+  if (w.pywebview?.api?.open_url) void w.pywebview.api.open_url(url);
+  else window.open(url, "_blank", "noopener");
+}

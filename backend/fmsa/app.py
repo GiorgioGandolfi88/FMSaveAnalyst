@@ -105,6 +105,12 @@ class DesktopApi:
     def pick_career(self, folder: str = "") -> str | None:
         return self._pick(folder, "FMSaveAnalyst career (*.fmsa)")
 
+    def open_url(self, url: str) -> bool:
+        """Open a project web page in the default browser (only GitHub links are allowed)."""
+        if not url.startswith("https://github.com/"):
+            return False
+        return webbrowser.open(url)
+
     def pick_export_path(self, file_name: str) -> str | None:
         import webview
 

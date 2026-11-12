@@ -20,6 +20,7 @@ from fmsa.api_careers import create_router
 from fmsa.careers import JobRunner
 from fmsa.config import Settings, SettingsStore
 from fmsa.paths import AppPaths
+from fmsa.updates import UpdateChecker
 
 TOKEN_HEADER = "X-FMSA-Token"
 
@@ -53,6 +54,15 @@ def create_app(paths: AppPaths, store: SettingsStore, token: str) -> FastAPI:
             "data_dir": str(paths.data_dir),
             "settings_file": str(store.path),
         }
+
+    updates = UpdateChecker()
+
+    @app.get("/api/updates")
+    def get_updates(force: bool = False) -> dict[str, object]:
+        """Latest release on GitHub. Automatic checks honour the settings switch."""
+        if not force and not store.get().check_updates:
+            return {"current": __version__, "disabled": True, "update_available": False}
+        return updates.get(force=force).to_dict()
 
     @app.get("/api/settings")
     def get_settings() -> Settings:

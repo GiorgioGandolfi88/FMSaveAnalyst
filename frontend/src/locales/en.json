@@ -333,5 +333,16 @@
       "sent": "sent",
       "declined": "not sent"
     }
+  },
+  "updates": {
+    "available": "FMSaveAnalyst {{version}} is available",
+    "body": "You are using version {{current}}. Download the new zip from the release page, extract it and replace the app folder: your data is not touched.",
+    "download": "Go to download",
+    "notes": "What's new",
+    "later": "Later",
+    "check": "Check now",
+    "upToDate": "You already have the latest version ({{version}}).",
+    "noRelease": "No release has been published yet.",
+    "offline": "Cannot reach GitHub: check the connection."
   }
 }
