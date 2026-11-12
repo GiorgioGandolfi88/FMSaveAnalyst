@@ -63,7 +63,7 @@ def create_app(paths: AppPaths, store: SettingsStore, token: str) -> FastAPI:
         return store.save(settings)
 
     app.include_router(create_router(store, JobRunner()))
-    app.include_router(api_query.create_router(store))
+    app.include_router(api_query.create_router(store, paths.data_dir))
     _mount_frontend(app, paths.frontend_dir)
     return app
 

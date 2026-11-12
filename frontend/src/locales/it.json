@@ -121,5 +121,96 @@
       "refApprox": "Anagrafiche: versione {{version}} (la più vicina disponibile)",
       "refMissing": "Nessuna anagrafica per questa versione: i nomi di competizioni e nazioni resteranno vuoti."
     }
+  },
+  "explore": {
+    "searchTables": "Cerca tabella…",
+    "masked": "Dato nascosto dalle impostazioni di mascheramento",
+    "columns": "Colonne",
+    "openInQuery": "Apri come SQL",
+    "rows": "{{count}} righe",
+    "noCareer": "Apri o crea una carriera per esplorare i dati.",
+    "groups": {
+      "data": "Dati attuali",
+      "derived": "Viste di supporto",
+      "reference": "Anagrafiche",
+      "history": "Storico (tutte le versioni)"
+    },
+    "kinds": {
+      "entity": "entità con storico",
+      "event": "eventi accumulati",
+      "snapshot": "istantanea per import",
+      "latest": "ultimo import",
+      "child": "dettaglio"
+    }
+  },
+  "export": {
+    "button": "Esporta",
+    "csvExcel": "CSV per Excel (;)",
+    "csv": "CSV (,)",
+    "json": "JSON",
+    "done": "Esportazione completata: {{path}}",
+    "failed": "Esportazione non riuscita"
+  },
+  "query": {
+    "modeBuilder": "Costruttore visuale",
+    "modeSql": "SQL",
+    "addTable": "Aggiungi una tabella…",
+    "builderHint": "Le tabelle aggiunte vengono collegate automaticamente quando esiste una relazione. Trascina dal pallino destro di una tabella al sinistro di un'altra per collegarle a mano; clicca su un collegamento per modificarlo.",
+    "filterColumns": "Filtra colonne…",
+    "columns": "Colonne",
+    "filters": "Filtri",
+    "sort": "Ordinamento",
+    "options": "Opzioni",
+    "noColumns": "Seleziona le colonne nelle tabelle del diagramma.",
+    "label": "Nome nel risultato (facoltativo)",
+    "agg": {
+      "none": "Valore",
+      "count": "Conteggio",
+      "count_distinct": "Conteggio distinti",
+      "sum": "Somma",
+      "avg": "Media",
+      "min": "Minimo",
+      "max": "Massimo"
+    },
+    "ops": {
+      "=": "uguale a",
+      "!=": "diverso da",
+      "<": "minore di",
+      "<=": "minore o uguale a",
+      ">": "maggiore di",
+      ">=": "maggiore o uguale a",
+      "contains": "contiene",
+      "starts": "inizia con",
+      "ends": "finisce con",
+      "between": "tra",
+      "in": "uno tra (lista)",
+      "null": "è vuoto",
+      "notnull": "non è vuoto"
+    },
+    "addFilter": "Aggiungi filtro",
+    "addSort": "Aggiungi ordinamento",
+    "asc": "Crescente",
+    "desc": "Decrescente",
+    "limit": "Numero massimo di righe",
+    "distinct": "Solo righe distinte",
+    "clear": "Svuota il diagramma",
+    "warn": {
+      "noTables": "Aggiungi almeno una tabella.",
+      "unjoined": "Alcune tabelle non sono collegate e vengono ignorate: collegale con un join.",
+      "noColumns": "Nessuna colonna selezionata: verranno mostrate tutte le colonne della prima tabella."
+    },
+    "editAsSql": "Modifica come SQL",
+    "save": "Salva query",
+    "saveName": "Nome della query",
+    "savedQueries": "Query salvate…",
+    "savedOk": "Query \"{{name}}\" salvata",
+    "run": "Esegui",
+    "sqlHint": "Solo lettura: sono ammesse soltanto query SELECT / WITH. Ctrl+Invio per eseguire.",
+    "resultInfo": "{{count}} righe in {{ms}} ms",
+    "truncated": "risultato troncato: usa Esporta per avere tutte le righe",
+    "join": "Collegamento tra tabelle",
+    "leftJoin": "Mantieni tutte le righe a sinistra (LEFT)",
+    "innerJoin": "Solo righe collegate (INNER)",
+    "removeJoin": "Rimuovi collegamento"
   }
 }

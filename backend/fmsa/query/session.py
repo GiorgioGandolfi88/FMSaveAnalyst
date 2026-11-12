@@ -16,9 +16,10 @@ Python's sqlite3 also refuses to run more than one statement per call.
 from __future__ import annotations
 
 import datetime as dt
+import re
 import sqlite3
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -36,6 +37,7 @@ _ALLOWED_ACTIONS = {
     sqlite3.SQLITE_FUNCTION,
     getattr(sqlite3, "SQLITE_RECURSIVE", 33),
 }
+_QUALIFIED = re.compile(r'^(?:"?[\w]+"?\.)?"?([^".]+)"?$')
 _DENIED_FUNCTIONS = {"load_extension", "readfile", "writefile", "edit", "fts3_tokenizer"}
 
 
@@ -106,6 +108,13 @@ class ReadOnlySession:
             return sqlite3.SQLITE_DENY
         return sqlite3.SQLITE_OK
 
+    def _column_name(self, name: str) -> str:
+        """SQLite names a masked (ignored) column after its expression, e.g. t1."col"."""
+        m = _QUALIFIED.match(name)
+        if m and m.group(1).lower() in self.masked_names:
+            return m.group(1)
+        return name
+
     def _progress(self) -> int:
         return 1 if self._deadline and time.monotonic() > self._deadline else 0
 
@@ -130,6 +139,7 @@ class ReadOnlySession:
             self._deadline = 0.0
         truncated = len(raw) > limit
         rows = [[_json_value(v) for v in r] for r in raw[:limit]]
+        columns = [self._column_name(c) for c in columns]
         masked = [c for c in columns if c.lower() in self.masked_names]
         return QueryResult(
             columns=columns,
@@ -138,6 +148,33 @@ class ReadOnlySession:
             elapsed_ms=int((time.monotonic() - start) * 1000),
             masked=masked,
         )
+
+    def stream(
+        self, sql: str, params: Iterable[Any] = (), timeout_s: float = 600.0
+    ) -> tuple[list[str], Iterator[list[Any]]]:
+        """Columns and an iterator over all rows (for exports). Same guards as query()."""
+        sql = sql.strip().rstrip(";").strip()
+        if not sql:
+            raise QueryError("empty query")
+        self._deadline = time.monotonic() + timeout_s
+        try:
+            cur = self.conn.execute(sql, tuple(params))
+        except (sqlite3.DatabaseError, sqlite3.Warning) as exc:
+            self._deadline = 0.0
+            raise QueryError(self._explain(exc)) from exc
+        columns = [d[0] for d in cur.description or []]
+
+        def rows() -> Iterator[list[Any]]:
+            try:
+                while batch := cur.fetchmany(2000):
+                    for r in batch:
+                        yield [_json_value(v) for v in r]
+            except sqlite3.DatabaseError as exc:
+                raise QueryError(self._explain(exc)) from exc
+            finally:
+                self._deadline = 0.0
+
+        return columns, rows()
 
     def _explain(self, exc: Exception) -> str:
         msg = str(exc)

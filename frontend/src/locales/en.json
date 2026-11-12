@@ -121,5 +121,96 @@
       "refApprox": "Reference data: version {{version}} (closest available)",
       "refMissing": "No reference data for this version: competition and nation names will be empty."
     }
+  },
+  "explore": {
+    "searchTables": "Search table…",
+    "masked": "Hidden by the masking settings",
+    "columns": "Columns",
+    "openInQuery": "Open as SQL",
+    "rows": "{{count}} rows",
+    "noCareer": "Open or create a career to explore its data.",
+    "groups": {
+      "data": "Current data",
+      "derived": "Helper views",
+      "reference": "Reference data",
+      "history": "History (all versions)"
+    },
+    "kinds": {
+      "entity": "entity with history",
+      "event": "accumulated events",
+      "snapshot": "snapshot per import",
+      "latest": "latest import",
+      "child": "detail"
+    }
+  },
+  "export": {
+    "button": "Export",
+    "csvExcel": "CSV for Excel (;)",
+    "csv": "CSV (,)",
+    "json": "JSON",
+    "done": "Export completed: {{path}}",
+    "failed": "Export failed"
+  },
+  "query": {
+    "modeBuilder": "Visual builder",
+    "modeSql": "SQL",
+    "addTable": "Add a table…",
+    "builderHint": "Added tables are linked automatically when a relation exists. Drag from a table's right dot to another table's left dot to link them by hand; click a link to edit it.",
+    "filterColumns": "Filter columns…",
+    "columns": "Columns",
+    "filters": "Filters",
+    "sort": "Sorting",
+    "options": "Options",
+    "noColumns": "Select columns in the tables of the diagram.",
+    "label": "Name in the result (optional)",
+    "agg": {
+      "none": "Value",
+      "count": "Count",
+      "count_distinct": "Distinct count",
+      "sum": "Sum",
+      "avg": "Average",
+      "min": "Minimum",
+      "max": "Maximum"
+    },
+    "ops": {
+      "=": "equals",
+      "!=": "not equal",
+      "<": "less than",
+      "<=": "less or equal",
+      ">": "greater than",
+      ">=": "greater or equal",
+      "contains": "contains",
+      "starts": "starts with",
+      "ends": "ends with",
+      "between": "between",
+      "in": "one of (list)",
+      "null": "is empty",
+      "notnull": "is not empty"
+    },
+    "addFilter": "Add filter",
+    "addSort": "Add sorting",
+    "asc": "Ascending",
+    "desc": "Descending",
+    "limit": "Maximum rows",
+    "distinct": "Distinct rows only",
+    "clear": "Clear the diagram",
+    "warn": {
+      "noTables": "Add at least one table.",
+      "unjoined": "Some tables are not linked and are ignored: link them with a join.",
+      "noColumns": "No columns selected: all columns of the first table will be shown."
+    },
+    "editAsSql": "Edit as SQL",
+    "save": "Save query",
+    "saveName": "Query name",
+    "savedQueries": "Saved queries…",
+    "savedOk": "Query \"{{name}}\" saved",
+    "run": "Run",
+    "sqlHint": "Read-only: only SELECT / WITH queries are allowed. Ctrl+Enter to run.",
+    "resultInfo": "{{count}} rows in {{ms}} ms",
+    "truncated": "result truncated: use Export to get every row",
+    "join": "Link between tables",
+    "leftJoin": "Keep all rows on the left (LEFT)",
+    "innerJoin": "Only linked rows (INNER)",
+    "removeJoin": "Remove link"
   }
 }

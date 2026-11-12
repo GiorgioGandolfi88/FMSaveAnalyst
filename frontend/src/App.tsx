@@ -23,11 +23,13 @@ import {
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type AppInfo, type Settings } from "./api";
+import { api, dataApi, type AppInfo, type Schema, type Settings } from "./api";
 import i18n from "./i18n";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import SettingsPage from "./pages/SettingsPage";
 import CareersPage from "./pages/CareersPage";
+import ExplorePage from "./pages/ExplorePage";
+import QueryPage from "./pages/QueryPage";
 
 type PageKey = "start" | "explore" | "query" | "dashboards" | "ai" | "settings";
 
@@ -51,6 +53,10 @@ export default function App() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [schema, setSchema] = useState<Schema | null>(null);
+  const [schemaError, setSchemaError] = useState<string | null>(null);
+  const [schemaVersion, setSchemaVersion] = useState(0);
+  const [pendingSql, setPendingSql] = useState<string | null>(null);
   const { setColorScheme } = useMantineColorScheme();
   const scheme = useComputedColorScheme("light");
 
@@ -66,7 +72,26 @@ export default function App() {
 
   const reloadSettings = useCallback(() => {
     api.getSettings().then(setSettings).catch((e: unknown) => setError(String(e)));
+    setSchemaVersion((v) => v + 1);
   }, []);
+
+  const career = settings?.last_career ?? "";
+  const maskingKey = JSON.stringify(settings?.masking ?? null);
+  useEffect(() => {
+    setSchema(null);
+    setSchemaError(null);
+    if (!career) return;
+    dataApi
+      .schema()
+      .then(setSchema)
+      .catch((e: unknown) => setSchemaError(String(e)));
+  }, [career, maskingKey, schemaVersion]);
+
+  const openInQuery = useCallback((sql: string) => {
+    setPendingSql(sql);
+    setPage("query");
+  }, []);
+  const clearPendingSql = useCallback(() => setPendingSql(null), []);
 
   const onSettingsSaved = useCallback((s: Settings) => {
     setSettings(s);
@@ -86,6 +111,25 @@ export default function App() {
     content = (
       <CareersPage currentPath={settings.last_career} onCareerChanged={reloadSettings} />
     );
+  } else if (page === "explore" || page === "query") {
+    if (!career) {
+      content = <Alert color="gray">{t("explore.noCareer")}</Alert>;
+    } else if (schemaError) {
+      content = <Alert color="red">{schemaError}</Alert>;
+    } else if (!schema) {
+      content = <Loader />;
+    } else if (page === "explore") {
+      content = <ExplorePage key={schema.career} schema={schema} onOpenInQuery={openInQuery} />;
+    } else {
+      content = (
+        <QueryPage
+          key={schema.career}
+          schema={schema}
+          initialSql={pendingSql}
+          onInitialSqlUsed={clearPendingSql}
+        />
+      );
+    }
   } else if (page === "settings") {
     content = <SettingsPage settings={settings} info={info} onSaved={onSettingsSaved} />;
   } else {

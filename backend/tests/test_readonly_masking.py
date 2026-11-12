@@ -198,3 +198,10 @@ def test_query_and_schema_api(db: Path, tmp_path: Path) -> None:
     cols = {c["name"]: c for c in objects["players"]["columns"]}
     assert cols["ability_potential"]["masked"] and not cols["ability_current"]["masked"]
     assert cols["_hash"]["masked"] and cols["_hash"]["internal"]
+
+
+def test_masked_column_keeps_its_name_in_joins(db: Path) -> None:
+    with open_career(db, MaskingSettings()) as s:
+        r = s.query('SELECT t1."ability_potential", t1.name FROM players AS t1')
+    assert r.columns == ["ability_potential", "name"]
+    assert r.masked == ["ability_potential"]

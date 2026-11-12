@@ -17,6 +17,7 @@ import threading
 import time
 import webbrowser
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 from typing import Any
 
 import uvicorn
@@ -103,6 +104,21 @@ class DesktopApi:
 
     def pick_career(self, folder: str = "") -> str | None:
         return self._pick(folder, "FMSaveAnalyst career (*.fmsa)")
+
+    def pick_export_path(self, file_name: str) -> str | None:
+        import webview
+
+        dialog = getattr(getattr(webview, "FileDialog", None), "SAVE", None)
+        if dialog is None:
+            dialog = webview.SAVE_DIALOG  # type: ignore[attr-defined]
+        kind = "JSON (*.json)" if file_name.endswith(".json") else "CSV (*.csv)"
+        result = self.window.create_file_dialog(
+            dialog, directory=str(Path.home() / "Documents"), save_filename=file_name,
+            file_types=(kind,),
+        )  # fmt: skip
+        if not result:
+            return None
+        return str(result if isinstance(result, str) else result[0])
 
     def _pick(self, folder: str, file_type: str) -> str | None:
         import webview

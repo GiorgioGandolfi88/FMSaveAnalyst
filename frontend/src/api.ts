@@ -201,9 +201,120 @@ export const careersApi = {
 interface DesktopApi {
   pick_save: (folder: string) => Promise<string | null>;
   pick_career: (folder: string) => Promise<string | null>;
+  pick_export_path?: (fileName: string) => Promise<string | null>;
 }
 
 export function desktopApi(): DesktopApi | null {
   const w = window as unknown as { pywebview?: { api?: DesktopApi } };
   return w.pywebview?.api ?? null;
+}
+
+// ---------------------------------------------------------------- schema, queries, export
+
+export interface SchemaColumn {
+  name: string;
+  type: string;
+  masked: boolean;
+  source_path: string;
+  status: string;
+  internal: boolean;
+}
+
+export interface SchemaObject {
+  name: string;
+  type: "table" | "view";
+  group: "data" | "history" | "reference" | "derived";
+  kind: string | null;
+  reader: string | null;
+  parent: string | null;
+  columns: SchemaColumn[];
+}
+
+export interface Relation {
+  from_table: string;
+  from_column: string;
+  to_table: string;
+  to_column: string;
+}
+
+export interface Schema {
+  career: string;
+  objects: SchemaObject[];
+  relations: Relation[];
+}
+
+export interface QueryResult {
+  columns: string[];
+  rows: unknown[][];
+  truncated: boolean;
+  elapsed_ms: number;
+  masked: string[];
+  row_count: number;
+}
+
+export interface BrowseRequest {
+  table: string;
+  columns?: string[] | null;
+  filter_model?: Record<string, unknown>;
+  sort_model?: { colId: string; sort: string }[];
+  start?: number;
+  end?: number;
+  count?: boolean;
+}
+
+export interface BrowseResult extends QueryResult {
+  total: number | null;
+  sql: string;
+  params: unknown[];
+}
+
+export type ExportFormat = "csv" | "csv_excel" | "json";
+
+export interface SavedQuery {
+  name: string;
+  sql: string;
+  model: Record<string, unknown> | null;
+}
+
+export const dataApi = {
+  schema: () => request<Schema>("GET", "/schema"),
+  query: (sql: string, limit = 10000) => request<QueryResult>("POST", "/query", { sql, limit }),
+  browse: (body: BrowseRequest) => request<BrowseResult>("POST", "/browse", body),
+  savedQueries: () => request<SavedQuery[]>("GET", "/saved-queries"),
+  saveQueries: (q: SavedQuery[]) => request<SavedQuery[]>("PUT", "/saved-queries", q),
+};
+
+const EXT: Record<ExportFormat, string> = { csv: "csv", csv_excel: "csv", json: "json" };
+
+/** Export a query or a grid view. In the desktop window a native "save as" dialog is used. */
+export async function exportData(
+  body: { sql?: string; browse?: BrowseRequest },
+  format: ExportFormat,
+  baseName: string,
+): Promise<string | null> {
+  const fileName = `${baseName}.${EXT[format]}`;
+  const desktop = desktopApi();
+  if (desktop?.pick_export_path) {
+    const path = await desktop.pick_export_path(fileName);
+    if (!path) return null;
+    const r = await request<{ path: string; rows: number }>("POST", "/export", {
+      ...body,
+      format,
+      path,
+    });
+    return r.path;
+  }
+  const res = await fetch("/api/export", {
+    method: "POST",
+    headers: { "X-FMSA-Token": token, "Content-Type": "application/json" },
+    body: JSON.stringify({ ...body, format }),
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+  return fileName;
 }
