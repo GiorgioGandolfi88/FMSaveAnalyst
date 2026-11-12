@@ -1,0 +1,62 @@
+{
+  "app": {
+    "name": "FMSaveAnalyst",
+    "tagline": "Analisi in sola lettura dei salvataggi di Football Manager 26 e 27",
+    "loading": "Caricamento…",
+    "backendError": "Impossibile contattare il motore locale dell'applicazione."
+  },
+  "nav": {
+    "start": "Carriere",
+    "explore": "Esplora dati",
+    "query": "Query builder",
+    "dashboards": "Dashboard",
+    "ai": "Assistenti AI",
+    "settings": "Impostazioni"
+  },
+  "start": {
+    "title": "Benvenuto",
+    "newCareer": "Nuova carriera",
+    "newCareerDesc": "Crea un nuovo database partendo da un salvataggio di Football Manager.",
+    "openCareer": "Apri carriera esistente",
+    "openCareerDesc": "Riprendi una carriera di FMSaveAnalyst e aggiungi i dati di un nuovo salvataggio.",
+    "recent": "Carriere recenti",
+    "noRecent": "Nessuna carriera ancora.",
+    "comingSoon": "Disponibile nelle prossime versioni"
+  },
+  "placeholder": {
+    "title": "In costruzione",
+    "body": "Questa sezione arriverà in uno dei prossimi step del progetto."
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "general": "Generali",
+    "language": "Lingua",
+    "checkUpdates": "Controlla gli aggiornamenti all'avvio",
+    "checkUpdatesDesc": "Unica connessione a internet oltre agli assistenti AI: interroga le release del progetto su GitHub.",
+    "paths": "Percorsi",
+    "fmSaveDir": "Cartella dei salvataggi di Football Manager",
+    "careersDir": "Cartella dei database delle carriere",
+    "referenceDb": "Database anagrafiche (competizioni, nazioni, città)",
+    "masking": "Mascheramento dati (anti-spoiler)",
+    "maskingDesc": "I dati selezionati vengono nascosti ovunque: tabelle, SQL, dashboard e assistenti AI.",
+    "maskPotential": "Potenziale (PA)",
+    "maskCurrent": "Abilità attuale (CA)",
+    "maskHidden": "Attributi nascosti (consistenza, partite importanti, infortuni, …)",
+    "maskPersonality": "Personalità (ambizione, professionalità, lealtà, …)",
+    "ai": "Assistenti AI",
+    "aiProvider": "Provider",
+    "aiNone": "Nessuno",
+    "aiModel": "Modello",
+    "aiConfirm": "Chiedi conferma prima di inviare dati al provider",
+    "aiKeysLater": "Le chiavi API verranno salvate nel Gestore credenziali di Windows (in arrivo).",
+    "about": "Informazioni",
+    "version": "Versione",
+    "dataDir": "Cartella dati",
+    "portable": "Modalità portabile",
+    "yes": "Sì",
+    "no": "No",
+    "save": "Salva",
+    "saved": "Impostazioni salvate",
+    "saveError": "Salvataggio non riuscito"
+  }
+}

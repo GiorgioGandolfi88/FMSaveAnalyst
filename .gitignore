@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+spikes/out/
+*.fmsa
+data/
+build/
+dist/

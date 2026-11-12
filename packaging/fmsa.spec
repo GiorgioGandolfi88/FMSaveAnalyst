@@ -1,0 +1,43 @@
+# PyInstaller spec: portable one-folder build of FMSaveAnalyst.
+# Run through scripts/build.py (it builds the frontend first and zips the result).
+# ruff: noqa
+from pathlib import Path
+
+from PyInstaller.utils.hooks import collect_all, collect_submodules
+
+ROOT = Path(SPECPATH).parent
+
+datas = [(str(ROOT / "frontend" / "dist"), "dist")]
+binaries = []
+hiddenimports = collect_submodules("uvicorn") + collect_submodules("fmsa")
+
+# fmsave loads its per-build layouts dynamically; backports.zstd is a native extension.
+for package in ("fmsave", "backports.zstd", "webview"):
+    d, b, h = collect_all(package)
+    datas += d
+    binaries += b
+    hiddenimports += h
+
+a = Analysis(
+    [str(ROOT / "packaging" / "launcher.py")],
+    pathex=[str(ROOT / "backend")],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
+    excludes=["tkinter", "pandas", "polars", "numpy", "matplotlib", "pytest", "psutil"],
+    noarchive=False,
+)
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name="FMSaveAnalyst",
+    console=False,
+    upx=False,
+    disable_windowed_traceback=False,
+)
+
+coll = COLLECT(exe, a.binaries, a.datas, upx=False, name="FMSaveAnalyst")

@@ -1,0 +1,25 @@
+FMSaveAnalyst - versione portabile
+==================================
+
+Avvio: doppio clic su FMSaveAnalyst.exe. Non serve installare nulla.
+
+- Al primo avvio Windows SmartScreen può mostrare "Windows ha protetto il PC":
+  scegli "Ulteriori informazioni" > "Esegui comunque" (l'eseguibile non è firmato).
+- L'interfaccia usa Microsoft Edge WebView2, già presente in Windows 11 e nei
+  Windows 10 aggiornati. Se manca, l'app si apre nel browser predefinito.
+- Impostazioni e database delle carriere sono salvati in %APPDATA%\FMSaveAnalyst.
+  Per tenerli invece qui accanto all'eseguibile (es. su chiavetta USB) crea un file
+  vuoto chiamato "portable.flag" in questa cartella: verrà usata la sottocartella "data".
+- La cartella "reference" contiene il database delle anagrafiche di gioco
+  (competizioni, nazioni, città) per ogni versione di Football Manager.
+
+Tutti i dati restano sul tuo PC. Le uniche connessioni a internet sono il controllo
+aggiornamenti su GitHub (disattivabile) e gli assistenti AI che configuri tu.
+
+----------------------------------------------------------------------------------
+
+FMSaveAnalyst - portable edition
+
+Start: double-click FMSaveAnalyst.exe. Nothing to install.
+Settings and career databases live in %APPDATA%\FMSaveAnalyst, or in the "data"
+subfolder if an empty "portable.flag" file exists next to the executable.

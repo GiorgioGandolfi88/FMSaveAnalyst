@@ -1,0 +1,62 @@
+{
+  "app": {
+    "name": "FMSaveAnalyst",
+    "tagline": "Read-only analysis of Football Manager 26 and 27 saves",
+    "loading": "Loading…",
+    "backendError": "Cannot reach the application's local engine."
+  },
+  "nav": {
+    "start": "Careers",
+    "explore": "Explore data",
+    "query": "Query builder",
+    "dashboards": "Dashboards",
+    "ai": "AI assistants",
+    "settings": "Settings"
+  },
+  "start": {
+    "title": "Welcome",
+    "newCareer": "New career",
+    "newCareerDesc": "Create a new database from a Football Manager save.",
+    "openCareer": "Open existing career",
+    "openCareerDesc": "Resume an FMSaveAnalyst career and add the data of a newer save.",
+    "recent": "Recent careers",
+    "noRecent": "No careers yet.",
+    "comingSoon": "Available in upcoming versions"
+  },
+  "placeholder": {
+    "title": "Under construction",
+    "body": "This section will arrive in one of the next project steps."
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "language": "Language",
+    "checkUpdates": "Check for updates at startup",
+    "checkUpdatesDesc": "The only internet connection besides AI assistants: it queries the project's GitHub releases.",
+    "paths": "Paths",
+    "fmSaveDir": "Football Manager save folder",
+    "careersDir": "Career databases folder",
+    "referenceDb": "Reference database (competitions, nations, cities)",
+    "masking": "Data masking (spoiler-free)",
+    "maskingDesc": "Selected data are hidden everywhere: tables, SQL, dashboards and AI assistants.",
+    "maskPotential": "Potential ability (PA)",
+    "maskCurrent": "Current ability (CA)",
+    "maskHidden": "Hidden attributes (consistency, important matches, injury proneness, …)",
+    "maskPersonality": "Personality (ambition, professionalism, loyalty, …)",
+    "ai": "AI assistants",
+    "aiProvider": "Provider",
+    "aiNone": "None",
+    "aiModel": "Model",
+    "aiConfirm": "Ask for confirmation before sending data to the provider",
+    "aiKeysLater": "API keys will be stored in the Windows Credential Manager (coming soon).",
+    "about": "About",
+    "version": "Version",
+    "dataDir": "Data folder",
+    "portable": "Portable mode",
+    "yes": "Yes",
+    "no": "No",
+    "save": "Save",
+    "saved": "Settings saved",
+    "saveError": "Saving failed"
+  }
+}

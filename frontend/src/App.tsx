@@ -1,0 +1,121 @@
+import {
+  ActionIcon,
+  Alert,
+  AppShell,
+  Group,
+  Loader,
+  NavLink,
+  Text,
+  Title,
+  useComputedColorScheme,
+  useMantineColorScheme,
+} from "@mantine/core";
+import {
+  IconChartBar,
+  IconDatabaseSearch,
+  IconHome,
+  IconMoon,
+  IconRobot,
+  IconSettings,
+  IconSitemap,
+  IconSun,
+} from "@tabler/icons-react";
+import { useCallback, useEffect, useState, type ComponentType } from "react";
+import { useTranslation } from "react-i18next";
+import { api, type AppInfo, type Settings } from "./api";
+import i18n from "./i18n";
+import PlaceholderPage from "./pages/PlaceholderPage";
+import SettingsPage from "./pages/SettingsPage";
+import StartPage from "./pages/StartPage";
+
+type PageKey = "start" | "explore" | "query" | "dashboards" | "ai" | "settings";
+
+const NAV: { key: PageKey; icon: ComponentType<{ size?: number }> }[] = [
+  { key: "start", icon: IconHome },
+  { key: "explore", icon: IconDatabaseSearch },
+  { key: "query", icon: IconSitemap },
+  { key: "dashboards", icon: IconChartBar },
+  { key: "ai", icon: IconRobot },
+  { key: "settings", icon: IconSettings },
+];
+
+export default function App() {
+  const { t } = useTranslation();
+  const [page, setPage] = useState<PageKey>("start");
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [info, setInfo] = useState<AppInfo | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { setColorScheme } = useMantineColorScheme();
+  const scheme = useComputedColorScheme("light");
+
+  useEffect(() => {
+    Promise.all([api.getSettings(), api.appInfo()])
+      .then(([s, i]) => {
+        setSettings(s);
+        setInfo(i);
+        void i18n.changeLanguage(s.language);
+      })
+      .catch((e: unknown) => setError(String(e)));
+  }, []);
+
+  const onSettingsSaved = useCallback((s: Settings) => {
+    setSettings(s);
+    void i18n.changeLanguage(s.language);
+  }, []);
+
+  let content;
+  if (error) {
+    content = (
+      <Alert color="red" title={t("app.backendError")}>
+        {error}
+      </Alert>
+    );
+  } else if (!settings || !info) {
+    content = <Loader />;
+  } else if (page === "start") {
+    content = <StartPage settings={settings} />;
+  } else if (page === "settings") {
+    content = <SettingsPage settings={settings} info={info} onSaved={onSettingsSaved} />;
+  } else {
+    content = <PlaceholderPage title={t(`nav.${page}`)} />;
+  }
+
+  return (
+    <AppShell header={{ height: 56 }} navbar={{ width: 230, breakpoint: 0 }} padding="lg">
+      <AppShell.Header>
+        <Group h="100%" px="md" justify="space-between">
+          <Group gap="xs">
+            <Title order={4}>{t("app.name")}</Title>
+            <Text size="sm" c="dimmed" visibleFrom="sm">
+              {t("app.tagline")}
+            </Text>
+          </Group>
+          <ActionIcon
+            variant="default"
+            aria-label="color scheme"
+            onClick={() => setColorScheme(scheme === "dark" ? "light" : "dark")}
+          >
+            {scheme === "dark" ? <IconSun size={18} /> : <IconMoon size={18} />}
+          </ActionIcon>
+        </Group>
+      </AppShell.Header>
+      <AppShell.Navbar p="xs">
+        {NAV.map(({ key, icon: Icon }) => (
+          <NavLink
+            key={key}
+            active={page === key}
+            label={t(`nav.${key}`)}
+            leftSection={<Icon size={18} />}
+            onClick={() => setPage(key)}
+          />
+        ))}
+        {info && (
+          <Text size="xs" c="dimmed" mt="auto" p="xs">
+            v{info.version}
+          </Text>
+        )}
+      </AppShell.Navbar>
+      <AppShell.Main>{content}</AppShell.Main>
+    </AppShell>
+  );
+}
