@@ -5,7 +5,6 @@ import {
   Group,
   Paper,
   SegmentedControl,
-  Select,
   Stack,
   Switch,
   Table,
@@ -15,7 +14,8 @@ import {
 } from "@mantine/core";
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type AiProvider, type AppInfo, type Language, type Settings } from "../api";
+import { api, type AppInfo, type Language, type Settings } from "../api";
+import AiSettings from "../components/AiSettings";
 
 interface Props {
   settings: Settings;
@@ -141,34 +141,7 @@ export default function SettingsPage({ settings, info, onSaved }: Props) {
       </Section>
 
       <Section title={t("settings.ai")}>
-        <Group grow>
-          <Select
-            label={t("settings.aiProvider")}
-            value={draft.ai.provider}
-            allowDeselect={false}
-            onChange={(v) => set("ai", { ...draft.ai, provider: (v ?? "none") as AiProvider })}
-            data={[
-              { value: "none", label: t("settings.aiNone") },
-              { value: "anthropic", label: "Anthropic Claude" },
-              { value: "openai", label: "OpenAI" },
-              { value: "gemini", label: "Google Gemini" },
-            ]}
-          />
-          <TextInput
-            label={t("settings.aiModel")}
-            value={draft.ai.model}
-            disabled={draft.ai.provider === "none"}
-            onChange={(e) => set("ai", { ...draft.ai, model: e.currentTarget.value })}
-          />
-        </Group>
-        <Switch
-          checked={draft.ai.confirm_before_send}
-          onChange={(e) => set("ai", { ...draft.ai, confirm_before_send: e.currentTarget.checked })}
-          label={t("settings.aiConfirm")}
-        />
-        <Text size="xs" c="dimmed">
-          {t("settings.aiKeysLater")}
-        </Text>
+        <AiSettings ai={draft.ai} onChange={(ai) => set("ai", ai)} />
       </Section>
 
       <Section title={t("settings.about")}>

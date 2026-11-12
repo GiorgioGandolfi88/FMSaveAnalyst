@@ -1,0 +1,6 @@
+.ai-markdown p { margin: 0 0 0.5em; font-size: var(--mantine-font-size-sm); }
+.ai-markdown p:last-child { margin-bottom: 0; }
+.ai-markdown ul, .ai-markdown ol { margin: 0.25em 0 0.5em; padding-left: 1.4em; font-size: var(--mantine-font-size-sm); }
+.ai-markdown table { border-collapse: collapse; margin: 0.5em 0; font-size: var(--mantine-font-size-xs); }
+.ai-markdown th, .ai-markdown td { border: 1px solid var(--mantine-color-default-border); padding: 2px 8px; text-align: left; }
+.ai-markdown code { font-size: 0.85em; }

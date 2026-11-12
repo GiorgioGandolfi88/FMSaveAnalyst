@@ -411,3 +411,69 @@ export async function exportDashboard(
   URL.revokeObjectURL(url);
   return fileName;
 }
+
+// ---------------------------------------------------------------- AI assistants
+
+export interface AgentInfo {
+  id: string;
+  name: Localized;
+  description: Localized;
+}
+
+export interface AiStatus {
+  provider: AiProvider;
+  model: string;
+  confirm_before_send: boolean;
+  keys: Record<"anthropic" | "openai" | "gemini", boolean>;
+  default_models: Record<string, string>;
+  agents: AgentInfo[];
+}
+
+export type ChatEvent =
+  | { type: "user"; text: string }
+  | { type: "assistant"; text: string }
+  | { type: "error"; text: string }
+  | {
+      type: "tool";
+      id: string;
+      name: string;
+      args: Record<string, unknown>;
+      preview: {
+        kind: string;
+        columns?: string[];
+        rows?: unknown[][];
+        row_count?: number;
+        truncated?: boolean;
+        table?: string;
+        count?: number;
+        message?: string;
+      };
+      chars: number;
+      status: "pending" | "sent" | "declined";
+      error: boolean;
+    };
+
+export interface Chat {
+  id: string;
+  agent: string;
+  provider: string;
+  model: string;
+  confirm: boolean;
+  status: "idle" | "needs_approval";
+  events: ChatEvent[];
+  usage: { input_tokens: number; output_tokens: number; sent_chars: number };
+}
+
+export const aiApi = {
+  status: () => request<AiStatus>("GET", "/ai/status"),
+  saveKey: (provider: string, key: string) =>
+    request<{ saved: boolean }>("PUT", "/ai/key", { provider, key }),
+  deleteKey: (provider: string) => request<{ deleted: boolean }>("DELETE", `/ai/key/${provider}`),
+  test: (provider: string) =>
+    request<{ ok: boolean; models: string[] }>("POST", "/ai/test", { provider }),
+  newChat: (agent: string) => request<Chat>("POST", "/ai/chats", { agent }),
+  send: (id: string, text: string) => request<Chat>("POST", `/ai/chats/${id}/messages`, { text }),
+  approve: (id: string, approve: boolean) =>
+    request<Chat>("POST", `/ai/chats/${id}/approval`, { approve }),
+  close: (id: string) => request<{ closed: boolean }>("DELETE", `/ai/chats/${id}`),
+};

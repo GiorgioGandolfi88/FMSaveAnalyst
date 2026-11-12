@@ -164,6 +164,20 @@ def self_test(paths: AppPaths, save: str) -> int:
         import webview  # noqa: F401
 
         log.info("self-test: fmsave %s and pywebview import OK", fmsave.__version__)
+        import anthropic
+        import keyring
+        import openai
+        from google import genai
+
+        log.info(
+            "self-test: AI SDKs OK (anthropic %s, openai %s, google-genai %s), keyring %s",
+            anthropic.__version__,
+            openai.__version__,
+            genai.__version__,
+            type(keyring.get_keyring()).__name__,
+        )
+        if "fail" in type(keyring.get_keyring()).__name__.lower():
+            raise RuntimeError("no usable keyring backend")
         if save:
             with fmsave.open(save) as s:
                 info = s.info

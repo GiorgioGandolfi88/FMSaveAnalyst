@@ -38,7 +38,6 @@
     "aiNone": "None",
     "aiModel": "Model",
     "aiConfirm": "Ask for confirmation before sending data to the provider",
-    "aiKeysLater": "API keys will be stored in the Windows Credential Manager (coming soon).",
     "about": "About",
     "version": "Version",
     "dataDir": "Data folder",
@@ -284,6 +283,55 @@
       "home_goals": "Home goals",
       "away_goals": "Away goals",
       "away_club_name": "Away"
+    }
+  },
+  "ai": {
+    "keySaved": "Key saved in the Windows Credential Manager.",
+    "keyDeleted": "Key deleted.",
+    "testOk": "Connection OK: {{count}} models available (suggested in the Model field).",
+    "modelPlaceholder": "Choose or type a model name",
+    "modelDefault": "If empty: {{model}}",
+    "modelRequired": "Required: use \"Test connection\" to see the available models.",
+    "apiKey": "API key",
+    "keyPlaceholder": "Paste the API key here",
+    "keyStoredPlaceholder": "A key is already saved: paste a new one to replace it",
+    "saveKey": "Save key",
+    "keyStored": "Key saved",
+    "keyMissing": "No key",
+    "test": "Test connection",
+    "deleteKey": "Delete key",
+    "keyHint": "The key is stored encrypted in the Windows Credential Manager, never in the app's files, and is not shown again. It is sent only to the chosen provider.",
+    "confirmHint": "Before each send you see the query and a preview of the data, and decide whether to send it. Masked columns are never sent.",
+    "setupTitle": "Set up an AI assistant",
+    "setupBody": "Choose a provider (Anthropic Claude, OpenAI or Google Gemini) and save your API key in Settings. Your data stays on your PC: only your questions and the results of the queries the assistant runs are sent to the provider.",
+    "openSettings": "Open Settings",
+    "intro": "Choose an assistant. It answers by querying the career database read-only; masked columns are never sent.",
+    "privacyConfirm": "You will be asked to confirm before any data is sent to the provider.",
+    "privacyAuto": "Query results are sent to the provider without asking (you can change this in Settings).",
+    "newChat": "New conversation",
+    "usage": "tokens: {{input}} in / {{output}} out · data sent ≈ {{sent}} tokens",
+    "emptyChat": "Ask a question, e.g. \"Which expiring players should I renew?\"",
+    "thinking": "The assistant is working…",
+    "approveTitle": "Send this data to the provider?",
+    "approveBody": "The assistant wants to use the results shown above.",
+    "approve": "Send",
+    "decline": "Don't send",
+    "placeholder": "Type a question… (Enter to send, Shift+Enter for a new line)",
+    "send": "Send",
+    "rowsSummary": "{{count}} rows",
+    "truncated": "truncated result",
+    "previewOnly": "preview of the first 20",
+    "toolError": "Error",
+    "schemaSummary": "{{count}} items of the database structure",
+    "tools": {
+      "list_tables": "Table list",
+      "describe_table": "Table structure",
+      "run_sql": "SQL query"
+    },
+    "status": {
+      "pending": "awaiting confirmation",
+      "sent": "sent",
+      "declined": "not sent"
     }
   }
 }

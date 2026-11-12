@@ -3,7 +3,7 @@
 # ruff: noqa
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+from PyInstaller.utils.hooks import collect_all, collect_submodules, copy_metadata
 
 ROOT = Path(SPECPATH).parent
 
@@ -15,6 +15,10 @@ binaries = []
 hiddenimports = collect_submodules("uvicorn") + collect_submodules("fmsa")
 
 # fmsave loads its per-build layouts dynamically; backports.zstd is a native extension.
+# keyring discovers its backends through package metadata (Windows Credential Manager).
+datas += copy_metadata("keyring")
+hiddenimports += collect_submodules("keyring.backends") + ["win32ctypes.core"]
+
 for package in ("fmsave", "backports.zstd", "webview"):
     d, b, h = collect_all(package)
     datas += d

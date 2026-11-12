@@ -38,7 +38,6 @@
     "aiNone": "Nessuno",
     "aiModel": "Modello",
     "aiConfirm": "Chiedi conferma prima di inviare dati al provider",
-    "aiKeysLater": "Le chiavi API verranno salvate nel Gestore credenziali di Windows (in arrivo).",
     "about": "Informazioni",
     "version": "Versione",
     "dataDir": "Cartella dati",
@@ -284,6 +283,55 @@
       "home_goals": "Gol casa",
       "away_goals": "Gol trasferta",
       "away_club_name": "Trasferta"
+    }
+  },
+  "ai": {
+    "keySaved": "Chiave salvata nel Gestore credenziali di Windows.",
+    "keyDeleted": "Chiave eliminata.",
+    "testOk": "Connessione riuscita: {{count}} modelli disponibili (suggeriti nel campo Modello).",
+    "modelPlaceholder": "Scegli o scrivi il nome del modello",
+    "modelDefault": "Se vuoto: {{model}}",
+    "modelRequired": "Obbligatorio: usa \"Test connessione\" per vedere i modelli disponibili.",
+    "apiKey": "Chiave API",
+    "keyPlaceholder": "Incolla qui la chiave API",
+    "keyStoredPlaceholder": "Una chiave è già salvata: incollane una nuova per sostituirla",
+    "saveKey": "Salva chiave",
+    "keyStored": "Chiave salvata",
+    "keyMissing": "Nessuna chiave",
+    "test": "Test connessione",
+    "deleteKey": "Elimina chiave",
+    "keyHint": "La chiave viene salvata cifrata nel Gestore credenziali di Windows, mai nei file dell'app, e non viene più mostrata. Viene inviata solo al provider scelto.",
+    "confirmHint": "Prima di ogni invio vedi la query e un'anteprima dei dati, e decidi se mandarli. Le colonne mascherate non vengono mai inviate.",
+    "setupTitle": "Configura un assistente AI",
+    "setupBody": "Scegli un provider (Anthropic Claude, OpenAI o Google Gemini) e salva la tua chiave API nelle Impostazioni. I dati restano sul tuo PC: al provider vengono inviate solo le domande e i risultati delle query che l'assistente esegue.",
+    "openSettings": "Apri le Impostazioni",
+    "intro": "Scegli un assistente. Per rispondere interroga il database della carriera con query in sola lettura; le colonne mascherate non vengono mai inviate.",
+    "privacyConfirm": "Ti verrà chiesta conferma prima di ogni invio di dati al provider.",
+    "privacyAuto": "I risultati delle query vengono inviati al provider senza chiedere conferma (modificabile nelle Impostazioni).",
+    "newChat": "Nuova conversazione",
+    "usage": "token: {{input}} in / {{output}} out · dati inviati ≈ {{sent}} token",
+    "emptyChat": "Fai una domanda, per esempio: \"Quali giocatori in scadenza conviene rinnovare?\"",
+    "thinking": "L'assistente sta lavorando…",
+    "approveTitle": "Inviare questi dati al provider?",
+    "approveBody": "L'assistente vuole usare i risultati mostrati qui sopra.",
+    "approve": "Invia",
+    "decline": "Non inviare",
+    "placeholder": "Scrivi una domanda… (Invio per inviare, Maiusc+Invio per andare a capo)",
+    "send": "Invia",
+    "rowsSummary": "{{count}} righe",
+    "truncated": "risultato troncato",
+    "previewOnly": "anteprima delle prime 20",
+    "toolError": "Errore",
+    "schemaSummary": "{{count}} elementi della struttura del database",
+    "tools": {
+      "list_tables": "Elenco tabelle",
+      "describe_table": "Struttura tabella",
+      "run_sql": "Query SQL"
+    },
+    "status": {
+      "pending": "in attesa di conferma",
+      "sent": "inviato",
+      "declined": "non inviato"
     }
   }
 }

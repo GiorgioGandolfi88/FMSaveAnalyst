@@ -25,8 +25,8 @@ import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { api, dataApi, type AppInfo, type Schema, type Settings } from "./api";
 import i18n from "./i18n";
-import PlaceholderPage from "./pages/PlaceholderPage";
 import SettingsPage from "./pages/SettingsPage";
+import AiPage from "./pages/AiPage";
 import CareersPage from "./pages/CareersPage";
 import DashboardsPage from "./pages/DashboardsPage";
 import ExplorePage from "./pages/ExplorePage";
@@ -112,6 +112,12 @@ export default function App() {
     content = (
       <CareersPage currentPath={settings.last_career} onCareerChanged={reloadSettings} />
     );
+  } else if (page === "ai") {
+    content = career ? (
+      <AiPage key={`${career}|${schemaVersion}`} onOpenSettings={() => setPage("settings")} />
+    ) : (
+      <Alert color="gray">{t("explore.noCareer")}</Alert>
+    );
   } else if (page === "dashboards") {
     content = career ? (
       <DashboardsPage key={`${career}|${maskingKey}|${schemaVersion}`} onOpenInQuery={openInQuery} />
@@ -137,10 +143,8 @@ export default function App() {
         />
       );
     }
-  } else if (page === "settings") {
-    content = <SettingsPage settings={settings} info={info} onSaved={onSettingsSaved} />;
   } else {
-    content = <PlaceholderPage title={t(`nav.${page}`)} />;
+    content = <SettingsPage settings={settings} info={info} onSaved={onSettingsSaved} />;
   }
 
   return (
