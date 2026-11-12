@@ -17,7 +17,17 @@ export default function ResultGrid({ result }: { result: QueryResult }) {
         return { name, type, masked: masked.has(name) };
       }),
       t("explore.masked"),
-    ).map((d, i) => ({ ...d, field: `c${i}`, sortable: true }));
+    ).map((d, i) => {
+      const name = result.columns[i];
+      const label = t(`dash.labels.${name}`, { defaultValue: name });
+      return {
+        ...d,
+        field: `c${i}`,
+        sortable: true,
+        headerName: masked.has(name) ? `🔒 ${label}` : label,
+        headerTooltip: label === name ? d.headerTooltip : name,
+      };
+    });
   }, [result, t]);
   const rows = useMemo(
     () => toRecords(result.columns.map((_, i) => `c${i}`), result.rows),

@@ -7,7 +7,10 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 ROOT = Path(SPECPATH).parent
 
-datas = [(str(ROOT / "frontend" / "dist"), "dist")]
+datas = [
+    (str(ROOT / "frontend" / "dist"), "dist"),
+    (str(ROOT / "backend" / "fmsa" / "dashboards" / "defs"), "fmsa/dashboards/defs"),
+]
 binaries = []
 hiddenimports = collect_submodules("uvicorn") + collect_submodules("fmsa")
 

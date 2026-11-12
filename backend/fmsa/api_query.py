@@ -116,6 +116,7 @@ class ExportBody(BaseModel):
     sql: str | None = None
     browse: BrowseBody | None = None
     path: str | None = None  # write to this file (desktop) instead of returning it
+    params: dict[str, Any] | None = None  # named parameters for `sql` (dashboard widgets)
 
 
 class SavedQuery(BaseModel):
@@ -198,7 +199,7 @@ def create_router(store: SettingsStore, data_dir: Path) -> APIRouter:
         if body.browse is not None:
             sql, _, params = browse_sql(path, body.browse)
         elif body.sql:
-            sql, params = body.sql, []
+            sql, params = body.sql, (body.params or [])
         else:
             raise HTTPException(422, "sql or browse is required")
         encoding = "utf-8-sig" if body.format == "csv_excel" else "utf-8"

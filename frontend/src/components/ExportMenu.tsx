@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { exportData, type BrowseRequest, type ExportFormat } from "../api";
 
 interface Props {
-  source: { sql?: string; browse?: BrowseRequest } | null;
+  source: { sql?: string; browse?: BrowseRequest; params?: Record<string, unknown> } | null;
   baseName: string;
   onResult: (message: string, ok: boolean) => void;
 }

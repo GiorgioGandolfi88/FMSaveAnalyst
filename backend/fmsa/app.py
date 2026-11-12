@@ -111,7 +111,9 @@ class DesktopApi:
         dialog = getattr(getattr(webview, "FileDialog", None), "SAVE", None)
         if dialog is None:
             dialog = webview.SAVE_DIALOG  # type: ignore[attr-defined]
-        kind = "JSON (*.json)" if file_name.endswith(".json") else "CSV (*.csv)"
+        kind = {".json": "JSON (*.json)", ".zip": "ZIP (*.zip)"}.get(
+            Path(file_name).suffix.lower(), "CSV (*.csv)"
+        )
         result = self.window.create_file_dialog(
             dialog, directory=str(Path.home() / "Documents"), save_filename=file_name,
             file_types=(kind,),

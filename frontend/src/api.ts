@@ -288,7 +288,7 @@ const EXT: Record<ExportFormat, string> = { csv: "csv", csv_excel: "csv", json: 
 
 /** Export a query or a grid view. In the desktop window a native "save as" dialog is used. */
 export async function exportData(
-  body: { sql?: string; browse?: BrowseRequest },
+  body: { sql?: string; browse?: BrowseRequest; params?: Record<string, unknown> },
   format: ExportFormat,
   baseName: string,
 ): Promise<string | null> {
@@ -308,6 +308,99 @@ export async function exportData(
     method: "POST",
     headers: { "X-FMSA-Token": token, "Content-Type": "application/json" },
     body: JSON.stringify({ ...body, format }),
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+  return fileName;
+}
+
+// ---------------------------------------------------------------- dashboards
+
+export type Localized = Record<string, string>;
+
+export interface DashboardSummary {
+  id: string;
+  title: Localized;
+  description: Localized;
+  params: string[];
+  source: "builtin" | "user";
+  widgets: number;
+}
+
+export interface DashboardWidget {
+  id: string;
+  type: "kpi" | "table" | "bar" | "line" | "scatter";
+  title: Localized;
+  sql: string;
+  span?: number;
+  format?: "int" | "decimal" | "money" | "text";
+  x?: string;
+  y?: string | string[];
+  series?: string;
+  label?: string;
+  horizontal?: boolean;
+  stacked?: boolean;
+  invert_y?: boolean;
+}
+
+export interface Dashboard extends Omit<DashboardSummary, "widgets"> {
+  widgets: DashboardWidget[];
+}
+
+export interface ParamOption {
+  value: string | number;
+  label: string;
+}
+
+export interface DashboardParams {
+  club: { options: ParamOption[]; default: number | null };
+  competition: { options: ParamOption[]; default: number | null };
+  season: { options: ParamOption[]; default: number | null };
+  today: string | null;
+}
+
+export type WidgetData = QueryResult | { error: string };
+
+export const dashboardsApi = {
+  list: () => request<DashboardSummary[]>("GET", "/dashboards"),
+  params: () => request<DashboardParams>("GET", "/dashboards/params"),
+  get: (id: string) => request<Dashboard>("GET", `/dashboards/${id}`),
+  data: (id: string, params: Record<string, unknown>) =>
+    request<{ widgets: Record<string, WidgetData> }>("POST", `/dashboards/${id}/data`, { params }),
+};
+
+export function localized(text: Localized | undefined, language: string): string {
+  if (!text) return "";
+  return text[language.slice(0, 2)] ?? text.en ?? Object.values(text)[0] ?? "";
+}
+
+/** Export a whole dashboard as a zip (one file per widget). */
+export async function exportDashboard(
+  id: string,
+  params: Record<string, unknown>,
+  format: ExportFormat,
+): Promise<string | null> {
+  const fileName = `${id}.zip`;
+  const desktop = desktopApi();
+  if (desktop?.pick_export_path) {
+    const path = await desktop.pick_export_path(fileName);
+    if (!path) return null;
+    const r = await request<{ path: string }>("POST", `/dashboards/${id}/export`, {
+      params,
+      format,
+      path,
+    });
+    return r.path;
+  }
+  const res = await fetch(`/api/dashboards/${id}/export`, {
+    method: "POST",
+    headers: { "X-FMSA-Token": token, "Content-Type": "application/json" },
+    body: JSON.stringify({ params, format }),
   });
   if (!res.ok) throw new ApiError(res.status, await res.text());
   const url = URL.createObjectURL(await res.blob());

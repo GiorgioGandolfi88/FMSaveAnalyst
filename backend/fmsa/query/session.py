@@ -19,7 +19,7 @@ import datetime as dt
 import re
 import sqlite3
 import time
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -62,6 +62,11 @@ class QueryResult:
             "masked": self.masked,
             "row_count": len(self.rows),
         }
+
+
+def _bind(params: Iterable[Any] | Mapping[str, Any]) -> Any:
+    """Positional (?) or named (:name) parameters."""
+    return dict(params) if isinstance(params, Mapping) else tuple(params)
 
 
 def _json_value(v: Any) -> Any:
@@ -121,7 +126,10 @@ class ReadOnlySession:
     # ------------------------------------------------------------------ API
 
     def query(
-        self, sql: str, params: Iterable[Any] = (), limit: int = DEFAULT_ROW_LIMIT
+        self,
+        sql: str,
+        params: Iterable[Any] | Mapping[str, Any] = (),
+        limit: int = DEFAULT_ROW_LIMIT,
     ) -> QueryResult:
         sql = sql.strip().rstrip(";").strip()
         if not sql:
@@ -130,7 +138,7 @@ class ReadOnlySession:
         start = time.monotonic()
         self._deadline = start + self.timeout_s
         try:
-            cur = self.conn.execute(sql, tuple(params))
+            cur = self.conn.execute(sql, _bind(params))
             columns = [d[0] for d in cur.description or []]
             raw = cur.fetchmany(limit + 1)
         except (sqlite3.DatabaseError, sqlite3.Warning) as exc:
@@ -150,7 +158,7 @@ class ReadOnlySession:
         )
 
     def stream(
-        self, sql: str, params: Iterable[Any] = (), timeout_s: float = 600.0
+        self, sql: str, params: Iterable[Any] | Mapping[str, Any] = (), timeout_s: float = 600.0
     ) -> tuple[list[str], Iterator[list[Any]]]:
         """Columns and an iterator over all rows (for exports). Same guards as query()."""
         sql = sql.strip().rstrip(";").strip()
@@ -158,7 +166,7 @@ class ReadOnlySession:
             raise QueryError("empty query")
         self._deadline = time.monotonic() + timeout_s
         try:
-            cur = self.conn.execute(sql, tuple(params))
+            cur = self.conn.execute(sql, _bind(params))
         except (sqlite3.DatabaseError, sqlite3.Warning) as exc:
             self._deadline = 0.0
             raise QueryError(self._explain(exc)) from exc

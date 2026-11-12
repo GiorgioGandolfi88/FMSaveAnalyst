@@ -1,0 +1,16 @@
+{
+  "id": "market",
+  "order": 9,
+  "title": {"it": "Mercato", "en": "Transfer market"},
+  "description": {"it": "I giocatori più preziosi e i migliori a fine contratto.", "en": "The most valuable players and the best ones near the end of their contract."},
+  "params": [],
+  "widgets": [
+    {"id": "value", "type": "bar", "span": 12, "horizontal": true, "x": "name", "y": "transfer_value",
+     "title": {"it": "I 20 giocatori con il valore più alto", "en": "The 20 most valuable players"},
+     "sql": "SELECT name, transfer_value FROM players WHERE transfer_value IS NOT NULL ORDER BY transfer_value DESC LIMIT 20"},
+    {"id": "free", "type": "table", "span": 12, "title": {"it": "In scadenza entro 6 mesi (per abilità attuale)", "en": "Expiring within 6 months (by current ability)"},
+     "sql": "SELECT p.name, p.age, p.club_name, p.natural_positions AS positions, p.ability_current, p.ability_potential, c.\"end\" AS contract_end, c.wage, p.transfer_value FROM players p JOIN contracts c ON c.player_uid = p.uid WHERE c.\"end\" <= date(:today, '+6 months') ORDER BY p.ability_current DESC LIMIT 100"},
+    {"id": "loans", "type": "table", "span": 12, "title": {"it": "Migliori giocatori in prestito", "en": "Best players on loan"},
+     "sql": "SELECT name, age, club_name, loan_parent_club_name AS owner_club, loan_end, ability_current, ability_potential FROM players WHERE on_loan = 1 ORDER BY ability_current DESC LIMIT 100"}
+  ]
+}

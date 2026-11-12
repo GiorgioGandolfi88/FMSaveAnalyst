@@ -22,6 +22,10 @@ META_COLUMNS: dict[Kind, list[tuple[str, str]]] = {
     Kind.SNAPSHOT: [("_import_id", "INTEGER")],
     Kind.LATEST: [("_import_id", "INTEGER")],
 }  # fmt: skip
+# Columns dashboards and typical queries filter on.
+FILTER_COLUMNS = frozenset(
+    {"club_uid", "player_uid", "competition_id", "season_year", "home_club_uid", "away_club_uid"}
+)
 CHILD_META: list[tuple[str, str]] = [("_parent_rid", "INTEGER"), ("_ord", "INTEGER")]
 
 Tree = tuple[tuple[Any, ...], tuple[tuple["Tree", ...], ...]]
@@ -103,6 +107,10 @@ class TableWriter:
         self._index(table, idx)
         if layout is self.layout and self.spec.key:
             self._index(table, list(self.spec.key))
+        if layout is self.layout:
+            for col in layout.column_names:
+                if col in FILTER_COLUMNS and col not in self.spec.key[:1]:
+                    self._index(table, [col])
 
     def _index(self, table: str, columns: list[str]) -> None:
         name = f"ix_{table}_{'_'.join(columns)}"

@@ -28,6 +28,7 @@ import i18n from "./i18n";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import SettingsPage from "./pages/SettingsPage";
 import CareersPage from "./pages/CareersPage";
+import DashboardsPage from "./pages/DashboardsPage";
 import ExplorePage from "./pages/ExplorePage";
 import QueryPage from "./pages/QueryPage";
 
@@ -110,6 +111,12 @@ export default function App() {
   } else if (page === "start") {
     content = (
       <CareersPage currentPath={settings.last_career} onCareerChanged={reloadSettings} />
+    );
+  } else if (page === "dashboards") {
+    content = career ? (
+      <DashboardsPage key={`${career}|${maskingKey}|${schemaVersion}`} onOpenInQuery={openInQuery} />
+    ) : (
+      <Alert color="gray">{t("explore.noCareer")}</Alert>
     );
   } else if (page === "explore" || page === "query") {
     if (!career) {

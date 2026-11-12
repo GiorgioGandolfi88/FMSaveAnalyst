@@ -1,0 +1,23 @@
+{
+  "id": "contracts",
+  "order": 4,
+  "title": {"it": "Contratti e stipendi", "en": "Contracts and wages"},
+  "description": {"it": "Scadenze e ingaggi della rosa del club scelto.", "en": "Contract expiries and wages of the chosen club."},
+  "params": ["club"],
+  "widgets": [
+    {"id": "expiring", "type": "kpi", "span": 4, "format": "int", "title": {"it": "Contratti in scadenza entro 12 mesi", "en": "Contracts expiring within 12 months"},
+     "sql": "SELECT count(*) AS value FROM contracts WHERE club_uid = :club AND \"end\" <= date(:today, '+12 months')"},
+    {"id": "wages", "type": "kpi", "span": 4, "format": "money", "title": {"it": "Monte ingaggi", "en": "Total wages"},
+     "sql": "SELECT sum(wage) AS value FROM contracts WHERE club_uid = :club"},
+    {"id": "top_wage", "type": "kpi", "span": 4, "format": "money", "title": {"it": "Ingaggio più alto", "en": "Highest wage"},
+     "sql": "SELECT max(wage) AS value FROM contracts WHERE club_uid = :club"},
+    {"id": "wage_bar", "type": "bar", "span": 6, "horizontal": true, "x": "player_name", "y": "wage",
+     "title": {"it": "Ingaggi (i 20 più alti)", "en": "Wages (top 20)"},
+     "sql": "SELECT player_name, wage FROM contracts WHERE club_uid = :club AND wage IS NOT NULL ORDER BY wage DESC LIMIT 20"},
+    {"id": "by_year", "type": "bar", "span": 6, "x": "year", "y": "contracts",
+     "title": {"it": "Contratti per anno di scadenza", "en": "Contracts by expiry year"},
+     "sql": "SELECT substr(\"end\", 1, 4) AS year, count(*) AS contracts FROM contracts WHERE club_uid = :club AND \"end\" IS NOT NULL GROUP BY year ORDER BY year"},
+    {"id": "list", "type": "table", "span": 12, "title": {"it": "Contratti in scadenza entro 18 mesi", "en": "Contracts expiring within 18 months"},
+     "sql": "SELECT c.player_name, p.age, p.ability_current, c.wage, c.\"end\" AS contract_end, c.squad_status_label AS squad_status, p.transfer_value FROM contracts c LEFT JOIN players p ON p.uid = c.player_uid WHERE c.club_uid = :club AND c.\"end\" <= date(:today, '+18 months') ORDER BY c.\"end\""}
+  ]
+}
