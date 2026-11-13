@@ -133,17 +133,38 @@
     "rows": "{{count}} rows",
     "noCareer": "Open or create a career to explore its data.",
     "groups": {
-      "data": "Current data",
+      "people": "People",
+      "clubs": "Clubs",
+      "nations": "Nations",
+      "competitions": "Competitions",
+      "season_stats": "Season statistics",
+      "injuries": "Injuries",
+      "managed": "Managed club only",
+      "save": "Save",
+      "other": "Other data",
       "derived": "Helper views",
       "reference": "Reference data",
-      "history": "History (all versions)"
+      "history": "History (previous versions / all versions)"
     },
     "kinds": {
-      "entity": "entity with history",
+      "entity": "current state (earlier versions in _history)",
       "event": "accumulated events",
-      "snapshot": "snapshot per import",
-      "latest": "latest import",
-      "child": "detail"
+      "snapshot": "latest copy (earlier ones in _history)",
+      "latest": "latest import only",
+      "child": "nested record"
+    },
+    "groupHelp": {
+      "history": "Tables named after the type (Player, Club, …) hold the CURRENT state: the data of the latest imported save. When you import a newer save, rows that change (e.g. a player who improves) or disappear are moved here: <Type>_history holds only the earlier versions, <Type>_all joins current and earlier ones (useful for progression over time). _valid_from and _valid_to are imports (see the career's import history).",
+      "reference": "Names saves do not contain (competitions, nations, cities), from the reference database you maintain.",
+      "derived": "Helper views made by the app, e.g. nation_names (nations with their reference name)."
+    },
+    "kindHelp": {
+      "entity": "Current state: one row per item (e.g. a player) as it is in the latest imported save. Earlier versions are in <Type>_history.",
+      "event": "Accumulated events: matches, injuries, completed seasons' statistics… Each save keeps only part of them; here every one seen in the imports adds up, without duplicates.",
+      "snapshot": "Copy from the latest import (e.g. league tables at that date). Copies from earlier imports are in <Type>_history.",
+      "latest": "Only the latest import's data (completed seasons are already in PlayerSeasonHistory).",
+      "child": "Nested record: each row belongs to a record of another table (_parent_table), linked by _parent_rid = <parent>._rid.",
+      "history": "Earlier versions (_history) or current + earlier (_all). _valid_to is the import that replaced the version."
     }
   },
   "export": {
@@ -228,7 +249,11 @@
     "params": {
       "club": "Club",
       "competition": "Competition",
-      "season": "Season"
+      "season": "Season",
+      "clubNation": "Club nation (narrows the list)",
+      "clubLeague": "Club league (narrows the list)",
+      "nation": "Club nation",
+      "league": "League"
     },
     "labels": {
       "ability_current": "Current ability",
@@ -287,7 +312,10 @@
       "home_goals": "Home goals",
       "away_goals": "Away goals",
       "away_club_name": "Away"
-    }
+    },
+    "all": "All",
+    "resetInputs": "Restore the default values",
+    "inputsHint": "Change the numbers and press Enter (or click outside the field) to update the dashboard."
   },
   "ai": {
     "keySaved": "Key saved in the Windows Credential Manager.",
@@ -348,5 +376,30 @@
     "upToDate": "You already have the latest version ({{version}}).",
     "noRelease": "No release has been published yet.",
     "offline": "Cannot reach GitHub: check the connection."
+  },
+  "importLog": {
+    "title": "Log of import #{{id}}",
+    "started": "Started",
+    "finished": "Finished",
+    "duration": "Duration",
+    "totals": "Rows read: {{read}} · rows inserted: {{inserted}}",
+    "file": "Log file",
+    "none": "This import has no detailed log (career created by an older version).",
+    "reader": "fmsave reader",
+    "table": "Table",
+    "start": "Start",
+    "end": "End",
+    "readMs": "Read ms",
+    "writeMs": "Write ms",
+    "rowsRead": "Read",
+    "rowsInserted": "Inserted",
+    "rowsUpdated": "Updated",
+    "rowsUnchanged": "Unchanged",
+    "rowsClosed": "Closed",
+    "status": "Result",
+    "button": "Log"
+  },
+  "common": {
+    "resizeHint": "Drag to make the area taller or shorter (double click: initial size)"
   }
 }

@@ -10,48 +10,87 @@ uv run python -m fmsa.ingest "data/careers/Mia carriera.fmsa" "Season 1.fm" "Sea
 
 - Il save viene prima copiato in una cartella temporanea, calcolandone lo SHA-256. Il file originale non viene mai toccato.
 - Ogni import è **un'unica transazione**: se qualcosa va storto, il database resta com'era.
+- Ogni import scrive anche un file di testo con lo stesso dettaglio di `_import_log`, nella cartella `logs\imports` dei dati dell'app. Il file ha questo nome: `<carriera>_importNNN_<data-ora>.log`. Dall'app lo apri con il pulsante **Log** nello storico degli import.
 - I reader vengono letti a gruppi, riaprendo il save per ogni gruppo, perché fmsave tiene in memoria tutte le tabelle lette.
 - Un reader non supportato per la build del save (es. `officials` su FM27 27.0.1) viene registrato come `unsupported` e saltato. La sua tabella resta vuota ma esiste.
 - Un import viene rifiutato (`ImportRejected`) se:
   - l'edizione è diversa da quella della carriera (FM26 contro FM27);
   - quello stesso file è già stato importato (stesso SHA-256);
-  - la data di gioco non è successiva a quella dell'ultimo import.
+  - la data di gioco non è successiva a quella dell'ultimo import;
+  - la carriera è stata creata con un formato di database precedente (`schema_version`).
 
   I controlli completi di continuità arrivano con lo Step 4.
 
-## Tabelle per ogni reader
+## Una tabella per ogni tipo di record fmsave
 
-Per ogni reader fmsave (`players`, `fixtures`, …) ci sono due oggetti:
+Il database contiene **una tabella fisica per ogni tipo di record fmsave**, con lo stesso nome del tipo nella documentazione di fmsave. Raggruppate come nella documentazione:
 
-| Oggetto | Cosa contiene |
+| Gruppo | Tabelle |
 |---|---|
-| `<reader>_all` (tabella) | tutto lo storico, con le colonne tecniche `_…` |
-| `<reader>` (vista) | lo stato "attuale", da usare nelle query normali |
+| Persone | `Player`, `Attributes`, `Ability`, `Reputation`, `Positions`, `Personality`, `Contract`, `Clause`, `ContractChainEntry`, `PlayerSuspension`, `Suspension`, `Staff`, `StaffAttributes`, `StaffPreferences`, `StaffList` |
+| Club | `Club`, `Team`, `ClubFacilities`, `Stadium`, `FinanceMonth`, `Sponsorship`, `AffiliateGroup`, `JobVacancy` |
+| Nazioni | `Nation` |
+| Competizioni | `Stage`, `Competition`, `Fixture`, `Official`, `LeagueTable`, `LeagueTableSplit`, `LeagueTableMatch`, `LeagueTableRow`, `TransferWindow`, `CompetitionRules`, `RulesRound`, `PlayerMatchStats`, `TeamMatchStats` |
+| Statistiche stagionali | `PlayerSeasonStats`, `PlayerSeasonHistory` |
+| Infortuni | `InjuryType`, `InjuryRecord` |
+| Solo club allenato | `ManagedClub`, `Tactic`, `TacticSlot`, `TacticSettingUnit`, `SetPieceRoutine`, `Selection`, `TeamTraining`, `TrainingSchedule`, `TrainingWeek`, `TrainingDay`, `MentoringGroup`, `SquadPlannerSlot` |
+| Salvataggio | `SaveInfo` (metadati del save, uno per import), `Fm27Span` (record grezzi sperimentali FM27) |
 
-Le liste di record diventano tabelle figlie: `players__traits`, `clubs__teams`, `league_tables__rows`, `league_tables__rows__matches`, … Si collegano al padre con `_parent_rid = <padre>._rid`, e la loro vista contiene solo i figli dei record attuali.
+### Colonne
 
-Regole di appiattimento:
-- i record annidati diventano colonne con prefisso (`ability_current`, `attributes_finishing`, `personality_ambition`);
-- i valori codificati diventano due colonne, `<campo>_label` e `<campo>_raw`;
-- le liste di valori semplici sono testo JSON (`natural_positions`);
-- le date sono testo ISO e i booleani 0/1;
-- i campi `unknown` (dati grezzi non decodificati) vengono scartati.
+Le colonne di ogni tabella sono **esattamente** `fmsave.export.column_names(<tipo>)`, nello stesso ordine, e i valori sono quelli di `fmsave.export.flat_rows(..., json_ready=True)`: le stesse righe piatte che dà `Table.to_pandas()`. Quindi:
+- i gruppi sono colonne con prefisso (`Player.attributes_finishing`, `LeagueTableRow.home_points`);
+- i valori codificati sono `<campo>` (etichetta) e `<campo>_code` (numero grezzo);
+- i campi calcolati di fmsave (es. `goals_per_90`) sono in fondo, come in fmsave;
+- le liste (anche di record, es. `Club.teams`, `LeagueTable.rows`) e le mappe sono testo JSON; le date testo ISO; i booleani 0/1.
 
-### Tre tipi di memorizzazione (`backend/fmsa/ingest/readers.py`)
+Prima delle colonne di fmsave ci sono le colonne tecniche, tutte con `_` iniziale:
 
-| Tipo | Reader | Comportamento |
+| Colonna | Dove | Contenuto |
 |---|---|---|
-| **entità** | players, contracts, staff, clubs, facilities, stadiums, nations, competitions, stages, officials, injury_types | Una versione per chiave, con `_valid_from` e `_valid_to` (id degli import). Una nuova versione si scrive solo se qualcosa è cambiato. La vista mostra le versioni con `_valid_to IS NULL`; lo storico (es. la progressione di CA e attributi) è in `_all`. |
-| **evento** | fixtures, player_season_history, injuries, suspensions, finances, player_match_stats, team_match_stats | Si accumulano import dopo import e vengono deduplicati per chiave, perché ogni save conserva solo una finestra temporale. Un evento i cui valori cambiano (una partita poi giocata) viene aggiornato. `_first_seen` e `_last_seen` indicano gli import in cui l'evento compariva. |
-| **snapshot** | league_tables, competition_rules, sponsorships, staff_lists, job_vacancies, … | Copia completa a ogni import (`_import_id`). La vista mostra l'ultimo import riuscito. |
-| **ultimo** | player_season_stats | Resta solo l'ultimo import. Le stagioni concluse sono già in `player_season_history`, quindi altre copie le duplicherebbero (erano il 35% dello spazio). |
+| `_rid` | tutte | id della riga, unico anche rispetto allo storico |
+| `_key`, `_hash` | entità ed eventi | chiave e impronta usate per il confronto tra import |
+| `_valid_from` | entità | import da cui la versione è valida |
+| `_first_seen`, `_last_seen` | eventi | primo e ultimo import in cui l'evento compariva |
+| `_import_id` | snapshot e "ultimo" | import da cui arriva la riga |
+| `_parent_table`, `_parent_field`, `_parent_rid`, `_ord` | record annidati | il record che li contiene (`_parent_rid = <padre>._rid`), il campo e la posizione nella lista |
+
+### Record annidati
+
+Un record annidato è **sia** nelle colonne del padre (come fa fmsave) **sia** come riga della tabella del suo tipo, collegata al padre:
+- `Attributes`: una riga per `Player.attributes` e una per `Player.raw_attributes` (`_parent_field`);
+- `Ability` e `Personality`: righe di `Player` e di `Staff` (`_parent_table`);
+- `LeagueTableSplit`: quattro righe per ogni `LeagueTableRow` (`home`, `away`, `first_half`, `second_half`);
+- `LeagueTableRow` → `LeagueTable`, `LeagueTableMatch` → `LeagueTableRow`, `Team` → `Club`, `Clause` e `ContractChainEntry` → `Contract`, `PlayerSuspension` → `Player`, `RulesRound` → `CompetitionRules`, `TacticSlot` → `Tactic`, `TacticSettingUnit` → `TacticSlot`, `TrainingWeek` e `TrainingSchedule` → `TeamTraining`, `TrainingDay` → `TrainingWeek`.
+
+Eccezione: `Player.contract` resta solo nelle colonne `contract_*` di `Player`, perché gli stessi contratti sono già le righe di `Contract` (lette da `Save.contracts()`).
+
+### Stato attuale e storico (`backend/fmsa/ingest/readers.py`)
+
+Ogni tabella contiene lo **stato attuale**. Quello che gli import precedenti avevano e che poi è cambiato non si perde:
+
+| Tipo | Tabelle | Comportamento |
+|---|---|---|
+| **entità** | `Player`, `Contract`, `Staff`, `Club`, `ClubFacilities`, `Stadium`, `Nation`, `Competition`, `Stage`, `Official`, `InjuryType` | Una versione per chiave. Se qualcosa cambia, la versione vecchia (con i suoi record annidati) passa in `<Tipo>_history`, con `_valid_to` = import che l'ha sostituita. Lo stesso per chi sparisce dal save. |
+| **evento** | `Fixture`, `PlayerSeasonHistory`, `InjuryRecord`, `Suspension`, `FinanceMonth`, `PlayerMatchStats`, `TeamMatchStats` | Si accumulano nella tabella import dopo import, deduplicati per chiave, perché ogni save conserva solo una finestra temporale. Un evento che cambia (una partita poi giocata) viene aggiornato. |
+| **snapshot** | `LeagueTable`, `CompetitionRules`, `Sponsorship`, `StaffList`, `JobVacancy`, `SaveInfo`, … | La tabella contiene la copia dell'ultimo import; le copie precedenti passano in `<Tipo>_history`. |
+| **ultimo** | `PlayerSeasonStats` | Resta solo l'ultimo import. Le stagioni concluse sono già in `PlayerSeasonHistory`. |
+
+Per entità e snapshot la vista `<Tipo>_all` unisce stato attuale e storico (per esempio la progressione di CA e attributi in `Player_all`).
 
 Chiavi delle entità/eventi principali:
-- `players` e `staff`: (`uid`, `birth_date`). Così un regen che eredita l'uid di un ritirato diventa una persona nuova.
-- `fixtures`: (`date`, `home_team_id`, `away_team_id`).
-- `player_season_history`: (`player_uid`, `season_year`, `club_uid`, `kind`, `competition_reference`).
+- `Player` e `Staff`: (`uid`, `birth_date`). Così un regen che eredita l'uid di un ritirato diventa una persona nuova.
+- `Fixture`: (`date`, `home_team_id`, `away_team_id`).
+- `PlayerSeasonHistory`: (`player_uid`, `season_year`, `club_uid`, `kind`, `competition_reference`).
 
 Se nello stesso import ci sono righe con la stessa chiave, ricevono un ordinale, così i duplicati identici restano distinti.
+
+### Tabelle vuote
+
+Una tabella vuota vuol dire che fmsave non ha restituito record per quel save:
+- le tabelle "Solo club allenato" sono vuote se nel save l'allenatore non ha un club;
+- `SquadPlannerSlot` non è supportata da fmsave 0.12.2 su FM26 (`UnsupportedGameError`, registrato nel log);
+- `PlayerMatchStats`: sui save FM26 di test fmsave 0.12.2 restituisce 0 righe anche chiamato direttamente; `fmsave validate` riporta che nessun giocatore ha uno storico partite non vuoto (`history_nonempty: 0`).
 
 ## Tabelle di sistema
 
@@ -60,7 +99,8 @@ Se nello stesso import ci sono righe con la stessa chiave, ricevono un ordinale,
 | `_meta` | edizione (`game`), data di creazione, nome del primo save, stringa di configurazione della partita |
 | `_imports` | un record per import: file, SHA-256, build, data di gioco, `summary_strings`, versioni di fmsave e dell'app, durata |
 | `_import_readers` | esito di ogni reader in ogni import: righe, nuove, aggiornate, invariate, chiuse, tempo, avvisi |
-| `_tables`, `_columns` | catalogo di tabelle e colonne, con il percorso del campo fmsave e il suo stato (verified/unconfirmed). Servirà a query builder, mascheramento e AI. |
+| `_import_log` | log dettagliato: per ogni reader **e per ogni tabella di destinazione** (figlie comprese) chiamata fmsave, inizio, fine lettura e fine con i millisecondi, ms di lettura e di scrittura, righe lette, inserite, aggiornate, invariate e chiuse, esito e messaggi |
+| `_tables`, `_columns` | catalogo di tabelle e colonne: reader, tipo di memorizzazione, tabelle padre, percorso del campo fmsave (`Player.ability.potential`) e suo stato (verified/unconfirmed/computed). Lo usano query builder, mascheramento e AI. |
 
 ## Misure (FM27, 3 stagioni)
 

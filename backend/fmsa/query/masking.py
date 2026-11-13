@@ -51,7 +51,12 @@ class MaskRules:
         return cls(frozenset(paths), tuple(prefixes), frozenset(extra))
 
     def matches(self, path: str) -> bool:
-        return path in self.paths or any(path.startswith(p) for p in self.path_prefixes)
+        # paths are "<Type>.<field path>" (Player.ability.potential, Ability.potential,
+        # Player.raw_attributes.consistency): match the rule on the trailing part of the path
+        path = path.lower()
+        if any(path == p or path.endswith("." + p) or path.endswith("_" + p) for p in self.paths):
+            return True
+        return any(path.startswith(p) or f".{p}" in path for p in self.path_prefixes)
 
 
 def masked_columns(conn: sqlite3.Connection, rules: MaskRules) -> set[tuple[str, str]]:
@@ -63,9 +68,10 @@ def masked_columns(conn: sqlite3.Connection, rules: MaskRules) -> set[tuple[str,
         rows = []
     for table, column, path in rows:
         if rules.matches(path or ""):
-            for name in (table, f"{table}_all"):
+            for name in (table, f"{table}_all", f"{table}_history"):
                 hidden.add((name.lower(), column.lower()))
     for table, column in rules.extra:
-        for name in (table, table.removesuffix("_all"), f"{table.removesuffix('_all')}_all"):
+        base = table.removesuffix("_all").removesuffix("_history")
+        for name in (base, f"{base}_all", f"{base}_history"):
             hidden.add((name, column))
     return hidden

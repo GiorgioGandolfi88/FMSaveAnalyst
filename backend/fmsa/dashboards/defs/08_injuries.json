@@ -6,18 +6,18 @@
   "params": ["club"],
   "widgets": [
     {"id": "count", "type": "kpi", "span": 6, "format": "int", "title": {"it": "Infortuni registrati", "en": "Recorded injuries"},
-     "sql": "SELECT count(*) AS value FROM injuries WHERE club_uid = :club AND kind = 'history'"},
+     "sql": "SELECT count(*) AS value FROM InjuryRecord WHERE club_uid = :club AND kind = 'history'"},
     {"id": "susp", "type": "kpi", "span": 6, "format": "int", "title": {"it": "Squalifiche registrate", "en": "Recorded suspensions"},
-     "sql": "SELECT count(*) AS value FROM suspensions WHERE club_uid = :club"},
+     "sql": "SELECT count(*) AS value FROM Suspension WHERE club_uid = :club"},
     {"id": "types", "type": "bar", "span": 6, "horizontal": true, "x": "type_name", "y": "injuries",
      "title": {"it": "Tipi di infortunio più frequenti (dove il gioco li registra)", "en": "Most frequent injury types (where the game records them)"},
-     "sql": "SELECT type_name, count(*) AS injuries FROM injuries WHERE club_uid = :club AND type_name IS NOT NULL GROUP BY type_name ORDER BY injuries DESC LIMIT 12"},
+     "sql": "SELECT type_name, count(*) AS injuries FROM InjuryRecord WHERE club_uid = :club AND type_name IS NOT NULL GROUP BY type_name ORDER BY injuries DESC LIMIT 12"},
     {"id": "players", "type": "bar", "span": 6, "horizontal": true, "x": "player_name", "y": "injuries",
      "title": {"it": "Giocatori con più infortuni", "en": "Players with the most injuries"},
-     "sql": "SELECT player_name, count(*) AS injuries FROM injuries WHERE club_uid = :club AND kind = 'history' GROUP BY player_uid ORDER BY injuries DESC LIMIT 12"},
+     "sql": "SELECT player_name, count(*) AS injuries FROM InjuryRecord WHERE club_uid = :club AND kind = 'history' GROUP BY player_uid ORDER BY injuries DESC LIMIT 12"},
     {"id": "list", "type": "table", "span": 12, "title": {"it": "Ultimi infortuni", "en": "Latest injuries"},
-     "sql": "SELECT date, player_name, type_name, severity_label AS severity, cause_label AS cause FROM injuries WHERE club_uid = :club AND kind = 'history' ORDER BY date DESC LIMIT 200"},
+     "sql": "SELECT date, player_name, type_name, severity, cause FROM InjuryRecord WHERE club_uid = :club AND kind = 'history' ORDER BY date DESC LIMIT 200"},
     {"id": "suspensions", "type": "table", "span": 12, "title": {"it": "Squalifiche", "en": "Suspensions"},
-     "sql": "SELECT issued_date, player_name, scope FROM suspensions WHERE club_uid = :club ORDER BY issued_date DESC"}
+     "sql": "SELECT issued_date, player_name, scope FROM Suspension WHERE club_uid = :club ORDER BY issued_date DESC"}
   ]
 }

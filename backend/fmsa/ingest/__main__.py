@@ -36,7 +36,12 @@ def main(argv: list[str] | None = None) -> int:
     for save in args.saves:
         print(f"Importing {save.name} ...", flush=True)
         try:
-            result = import_save(args.career, save, reference_db=args.reference)
+            result = import_save(
+                args.career,
+                save,
+                reference_db=args.reference,
+                log_dir=AppPaths.resolve().logs_dir / "imports",
+            )
         except ImportRejected as exc:
             print(f"  rejected: {exc}")
             status = 1

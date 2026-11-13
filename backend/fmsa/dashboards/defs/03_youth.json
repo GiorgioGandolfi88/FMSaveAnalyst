@@ -1,23 +1,138 @@
 {
-  "id": "youth",
-  "order": 3,
-  "title": {"it": "Giovani talenti", "en": "Young talents"},
-  "description": {"it": "I migliori giocatori fino a 21 anni in tutto il database.", "en": "The best players aged 21 or under in the whole database."},
-  "params": [],
-  "widgets": [
-    {"id": "u21", "type": "kpi", "span": 4, "format": "int", "title": {"it": "Under 21 con abilità attuale ≥ 120", "en": "Under-21s with current ability ≥ 120"},
-     "sql": "SELECT count(*) AS value FROM players WHERE age <= 21 AND ability_current >= 120"},
-    {"id": "u19", "type": "kpi", "span": 4, "format": "int", "title": {"it": "Under 19 con abilità attuale ≥ 100", "en": "Under-19s with current ability ≥ 100"},
-     "sql": "SELECT count(*) AS value FROM players WHERE age <= 19 AND ability_current >= 100"},
-    {"id": "best", "type": "kpi", "span": 4, "format": "text", "title": {"it": "Il migliore under 21", "en": "Best under-21"},
-     "sql": "SELECT name || ' (' || ability_current || ')' AS value FROM players WHERE age <= 21 ORDER BY ability_current DESC LIMIT 1"},
-    {"id": "by_age", "type": "bar", "span": 6, "x": "age", "y": "players",
-     "title": {"it": "Under 21 con abilità attuale ≥ 100, per età", "en": "Under-21s with current ability ≥ 100, by age"},
-     "sql": "SELECT age, count(*) AS players FROM players WHERE age <= 21 AND ability_current >= 100 GROUP BY age ORDER BY age"},
-    {"id": "scatter", "type": "scatter", "span": 6, "x": "age", "y": "ability_current", "label": "name",
-     "title": {"it": "I 300 migliori under 21", "en": "The 300 best under-21s"},
-     "sql": "SELECT name, age, ability_current FROM players WHERE age <= 21 ORDER BY ability_current DESC LIMIT 300"},
-    {"id": "list", "type": "table", "span": 12, "title": {"it": "I 100 migliori under 21", "en": "The 100 best under-21s"},
-     "sql": "SELECT name, age, club_name, natural_positions AS positions, ability_current, ability_potential, transfer_value FROM players WHERE age <= 21 ORDER BY ability_current DESC LIMIT 100"}
-  ]
+ "id": "youth",
+ "order": 3,
+ "title": {
+  "it": "Giovani talenti",
+  "en": "Young talents"
+ },
+ "description": {
+  "it": "I migliori giovani di tutto il database, o di una nazione o lega. Età e soglie si possono cambiare.",
+  "en": "The best young players in the whole database, or in one nation or league. Ages and thresholds can be changed."
+ },
+ "params": [
+  "nation",
+  "league"
+ ],
+ "widgets": [
+  {
+   "id": "u21",
+   "type": "kpi",
+   "span": 4,
+   "format": "int",
+   "title": {
+    "it": "Under {max_age} con abilità attuale ≥ {min_ca}",
+    "en": "Under-{max_age}s with current ability ≥ {min_ca}"
+   },
+   "sql": "SELECT count(*) AS value FROM Player WHERE age <= :max_age AND ability_current >= :min_ca AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM LeagueTableRow r JOIN LeagueTable lt ON lt._rid = r._parent_rid WHERE lt.competition_id = :league))"
+  },
+  {
+   "id": "u19",
+   "type": "kpi",
+   "span": 4,
+   "format": "int",
+   "title": {
+    "it": "Under {max_age_2} con abilità attuale ≥ {min_ca_2}",
+    "en": "Under-{max_age_2}s with current ability ≥ {min_ca_2}"
+   },
+   "sql": "SELECT count(*) AS value FROM Player WHERE age <= :max_age_2 AND ability_current >= :min_ca_2 AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM LeagueTableRow r JOIN LeagueTable lt ON lt._rid = r._parent_rid WHERE lt.competition_id = :league))"
+  },
+  {
+   "id": "best",
+   "type": "kpi",
+   "span": 4,
+   "format": "text",
+   "title": {
+    "it": "Il migliore under {max_age}",
+    "en": "Best under-{max_age}"
+   },
+   "sql": "SELECT name || ' (' || ability_current || ')' AS value FROM Player WHERE age <= :max_age AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM LeagueTableRow r JOIN LeagueTable lt ON lt._rid = r._parent_rid WHERE lt.competition_id = :league)) ORDER BY ability_current DESC LIMIT 1"
+  },
+  {
+   "id": "by_age",
+   "type": "bar",
+   "span": 6,
+   "x": "age",
+   "y": "players",
+   "title": {
+    "it": "Under {max_age} con abilità attuale ≥ {min_ca_2}, per età",
+    "en": "Under-{max_age}s with current ability ≥ {min_ca_2}, by age"
+   },
+   "sql": "SELECT age, count(*) AS players FROM Player WHERE age <= :max_age AND ability_current >= :min_ca_2 AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM LeagueTableRow r JOIN LeagueTable lt ON lt._rid = r._parent_rid WHERE lt.competition_id = :league)) GROUP BY age ORDER BY age"
+  },
+  {
+   "id": "scatter",
+   "type": "scatter",
+   "span": 6,
+   "x": "age",
+   "y": "ability_current",
+   "label": "name",
+   "title": {
+    "it": "I migliori under {max_age} (fino a 300)",
+    "en": "The best under-{max_age}s (up to 300)"
+   },
+   "sql": "SELECT name, age, ability_current FROM Player WHERE age <= :max_age AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM LeagueTableRow r JOIN LeagueTable lt ON lt._rid = r._parent_rid WHERE lt.competition_id = :league)) ORDER BY ability_current DESC LIMIT 300"
+  },
+  {
+   "id": "list",
+   "type": "table",
+   "span": 12,
+   "title": {
+    "it": "I {top} migliori under {max_age}",
+    "en": "The {top} best under-{max_age}s"
+   },
+   "sql": "SELECT name, age, club_name, natural_positions AS positions, ability_current, ability_potential, transfer_value FROM Player WHERE age <= :max_age AND ability_current >= :min_ca AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM LeagueTableRow r JOIN LeagueTable lt ON lt._rid = r._parent_rid WHERE lt.competition_id = :league)) ORDER BY ability_current DESC LIMIT :top"
+  }
+ ],
+ "inputs": [
+  {
+   "id": "max_age",
+   "default": 21,
+   "label": {
+    "it": "Età massima",
+    "en": "Maximum age"
+   },
+   "min": 14,
+   "max": 40
+  },
+  {
+   "id": "min_ca",
+   "default": 120,
+   "label": {
+    "it": "Abilità attuale minima",
+    "en": "Minimum current ability"
+   },
+   "min": 1,
+   "max": 200
+  },
+  {
+   "id": "max_age_2",
+   "default": 19,
+   "label": {
+    "it": "Età massima (secondo gruppo)",
+    "en": "Maximum age (second group)"
+   },
+   "min": 14,
+   "max": 40
+  },
+  {
+   "id": "min_ca_2",
+   "default": 100,
+   "label": {
+    "it": "Abilità attuale minima (secondo gruppo e grafico)",
+    "en": "Minimum current ability (second group and chart)"
+   },
+   "min": 1,
+   "max": 200
+  },
+  {
+   "id": "top",
+   "default": 100,
+   "label": {
+    "it": "Giocatori in elenco",
+    "en": "Players listed"
+   },
+   "min": 10,
+   "max": 5000
+  }
+ ]
 }

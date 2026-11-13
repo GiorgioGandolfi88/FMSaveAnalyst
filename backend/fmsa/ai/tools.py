@@ -83,7 +83,8 @@ class ToolRunner:
                 text = json.dumps(
                     {
                         "tables": items,
-                        "note": "Every view <name> has a <name>_all table with full history.",
+                        "note": "Tables are named like fmsave record types. Tables that keep history also have "
+                        "<name>_all (current + earlier versions) and <name>_history.",
                     }
                 )
                 return text, False, {"kind": "tables", "count": len(items)}

@@ -195,7 +195,46 @@ export const careersApi = {
   importSave: (career_path: string, save_path: string) =>
     request<Job>("POST", "/careers/import", { career_path, save_path }),
   job: (id: string) => request<Job>("GET", `/jobs/${id}`),
+  importLog: (path: string, importId: number) =>
+    request<ImportLog>(
+      "GET",
+      `/careers/import-log?path=${encodeURIComponent(path)}&import_id=${importId}`,
+    ),
 };
+
+export interface ImportLogRow {
+  seq: number;
+  reader: string;
+  fmsave_call: string;
+  table_name: string;
+  parent_table: string | null;
+  storage: string;
+  started_at: string | null;
+  read_finished_at: string | null;
+  finished_at: string | null;
+  read_ms: number | null;
+  write_ms: number | null;
+  rows_read: number | null;
+  rows_inserted: number | null;
+  rows_updated: number | null;
+  rows_unchanged: number | null;
+  rows_closed: number | null;
+  status: string;
+  message: string | null;
+}
+
+export interface ImportLog {
+  import: {
+    import_id: number;
+    file_name: string;
+    started_at: string;
+    finished_at: string | null;
+    duration_s: number | null;
+    status: string;
+    log_file: string | null;
+  } | null;
+  rows: ImportLogRow[];
+}
 
 // Native file dialogs, available only inside the desktop window (pywebview).
 interface DesktopApi {
@@ -223,7 +262,7 @@ export interface SchemaColumn {
 export interface SchemaObject {
   name: string;
   type: "table" | "view";
-  group: "data" | "history" | "reference" | "derived";
+  group: "data" | "records" | "history" | "reference" | "derived";
   kind: string | null;
   reader: string | null;
   parent: string | null;
@@ -323,11 +362,20 @@ export async function exportData(
 
 export type Localized = Record<string, string>;
 
+export interface DashboardInput {
+  id: string;
+  default: number;
+  min?: number;
+  max?: number;
+  label: Localized;
+}
+
 export interface DashboardSummary {
   id: string;
   title: Localized;
   description: Localized;
   params: string[];
+  inputs?: DashboardInput[];
   source: "builtin" | "user";
   widgets: number;
 }
@@ -355,12 +403,21 @@ export interface Dashboard extends Omit<DashboardSummary, "widgets"> {
 export interface ParamOption {
   value: string | number;
   label: string;
+  nation?: number | null; // club options: the club's nation
+  leagues?: number[]; // club options: competitions of the league tables it plays in
+}
+
+export interface ParamChoices {
+  options: ParamOption[];
+  default: number | null;
 }
 
 export interface DashboardParams {
-  club: { options: ParamOption[]; default: number | null };
-  competition: { options: ParamOption[]; default: number | null };
-  season: { options: ParamOption[]; default: number | null };
+  club: ParamChoices;
+  competition: ParamChoices;
+  season: ParamChoices;
+  nation: ParamChoices;
+  league: ParamChoices;
   today: string | null;
 }
 

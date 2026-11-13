@@ -13,6 +13,7 @@ from fmsa.careers import (
     JobRunner,
     career_file_name,
     import_history,
+    import_log,
     list_careers,
     list_saves,
     read_summary,
@@ -71,6 +72,10 @@ def create_router(store: SettingsStore, jobs: JobRunner) -> APIRouter:
     def career_detail(path: str) -> dict[str, Any]:
         p = _existing_file(path, "career")
         return {"summary": asdict(read_summary(p)), "imports": import_history(p)}
+
+    @router.get("/careers/import-log")
+    def career_import_log(path: str, import_id: int) -> dict[str, Any]:
+        return import_log(_existing_file(path, "career"), import_id)
 
     @router.post("/careers")
     def create_career(body: NewCareer) -> dict[str, Any]:

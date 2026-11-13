@@ -72,7 +72,7 @@ def create_app(paths: AppPaths, store: SettingsStore, token: str) -> FastAPI:
     def put_settings(settings: Settings) -> Settings:
         return store.save(settings)
 
-    app.include_router(create_router(store, JobRunner()))
+    app.include_router(create_router(store, JobRunner(paths.logs_dir / "imports")))
     app.include_router(api_query.create_router(store, paths.data_dir))
     app.include_router(api_dashboards.create_router(store, paths.data_dir))
     app.include_router(api_ai.create_router(store))

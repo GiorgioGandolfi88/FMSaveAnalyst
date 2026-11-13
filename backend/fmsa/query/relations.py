@@ -22,28 +22,29 @@ class Relation:
         return asdict(self)
 
 
-# column name (exact) -> target (table, column)
+# column name (exact) -> target (table, column); tables are named like the fmsave record types
 EXACT: dict[str, tuple[str, str]] = {
-    "player_uid": ("players", "uid"),
-    "person_uid": ("staff", "uid"),
-    "manager_staff_uid": ("staff", "uid"),
-    "nation_id": ("nations", "nation_id"),
-    "fa_nation_id": ("nations", "nation_id"),
-    "club_nation_id": ("nations", "nation_id"),
-    "club_fa_nation_id": ("nations", "nation_id"),
-    "competition_id": ("competitions", "id"),
-    "stage_id": ("stages", "id"),
-    "previous_stage_id": ("stages", "id"),
-    "stadium_uid": ("stadiums", "uid"),
-    "referee_id": ("officials", "referee_id"),
+    "player_uid": ("Player", "uid"),
+    "person_uid": ("Staff", "uid"),
+    "manager_staff_uid": ("Staff", "uid"),
+    "nation_id": ("Nation", "nation_id"),
+    "fa_nation_id": ("Nation", "nation_id"),
+    "club_nation_id": ("Nation", "nation_id"),
+    "club_fa_nation_id": ("Nation", "nation_id"),
+    "competition_id": ("Competition", "id"),
+    "stage_id": ("Stage", "id"),
+    "previous_stage_id": ("Stage", "id"),
+    "stadium_uid": ("Stadium", "uid"),
+    "referee_id": ("Official", "referee_id"),
+    "type_id": ("InjuryType", "id"),
     "city_id": ("ref_cities", "database_id"),
 }
 # per-table overrides: (table, column) -> target
 SPECIFIC: dict[tuple[str, str], tuple[str, str]] = {
-    ("injuries", "type_id"): ("injury_types", "id"),
-    ("competitions", "database_id"): ("ref_competitions", "database_id"),
-    ("nations", "database_id"): ("ref_nations", "database_id"),
+    ("Competition", "database_id"): ("ref_competitions", "database_id"),
+    ("Nation", "database_id"): ("ref_nations", "database_id"),
 }
+SUFFIXES = ("_all", "_history")
 
 
 def _target(table: str, column: str) -> tuple[str, str] | None:
@@ -52,10 +53,17 @@ def _target(table: str, column: str) -> tuple[str, str] | None:
     if column in EXACT:
         return EXACT[column]
     if column.endswith("club_uid"):
-        return ("clubs", "uid")
+        return ("Club", "uid")
     if column.endswith("team_id"):
-        return ("clubs__teams", "team_id")
+        return ("Team", "team_id")
     return None
+
+
+def _logical(name: str) -> str:
+    for suffix in SUFFIXES:
+        if name.endswith(suffix):
+            return name.removesuffix(suffix)
+    return name
 
 
 def derive_relations(objects: Iterable[dict[str, Any]]) -> list[Relation]:
@@ -65,18 +73,20 @@ def derive_relations(objects: Iterable[dict[str, Any]]) -> list[Relation]:
     relations: list[Relation] = []
     for o in objs:
         name = o["name"]
-        logical = name.removesuffix("_all") if o["group"] == "history" else name
+        logical = _logical(name)
+        suffix = name[len(logical) :]
         for col in columns[name]:
+            targets: list[tuple[str, str]] = []
             if col == "_parent_rid" and o.get("parent"):
-                parent = o["parent"]
-                target = (f"{parent}_all", "_rid") if o["group"] == "history" else (parent, "_rid")
+                # a nested record's parent; history rows point to history parents
+                targets = [(f"{p}{suffix}", "_rid") for p in str(o["parent"]).split(",")]
             else:
                 target = _target(logical, col)
-            if target is None:
-                continue
-            to_table, to_column = target
-            if to_table == logical and to_column == col:
-                continue  # the key column of the target itself
-            if to_column in columns.get(to_table, set()):
-                relations.append(Relation(name, col, to_table, to_column))
+                if target is not None:
+                    targets = [target]
+            for to_table, to_column in targets:
+                if to_table == logical and to_column == col:
+                    continue  # the key column of the target itself
+                if to_column in columns.get(to_table, set()):
+                    relations.append(Relation(name, col, to_table, to_column))
     return relations

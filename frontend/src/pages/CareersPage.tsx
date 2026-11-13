@@ -28,6 +28,7 @@ import {
   type Job,
 } from "../api";
 import ContinuityView from "../components/ContinuityView";
+import ImportLogModal from "../components/ImportLogModal";
 import JobProgress from "../components/JobProgress";
 import SavePicker from "../components/SavePicker";
 
@@ -251,6 +252,7 @@ export default function CareersPage({ currentPath, onCareerChanged }: Props) {
   const [newOpen, setNewOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logImport, setLogImport] = useState<number | null>(null);
 
   const load = useCallback(() => {
     careersApi.list().then(setCareers).catch((e) => setError(String(e)));
@@ -387,6 +389,9 @@ export default function CareersPage({ currentPath, onCareerChanged }: Props) {
                           <Badge color={i.status === "ok" ? "teal" : "red"} variant="light">
                             {i.status}
                           </Badge>
+                          <Button size="compact-xs" variant="light" onClick={() => setLogImport(i.import_id)}>
+                            {t("importLog.button")}
+                          </Button>
                           {i.skipped_readers.length > 0 && (
                             <Tooltip
                               multiline
@@ -457,6 +462,9 @@ export default function CareersPage({ currentPath, onCareerChanged }: Props) {
         </Table>
       )}
 
+      {current && (
+        <ImportLogModal careerPath={current.path} importId={logImport} onClose={() => setLogImport(null)} />
+      )}
       <NewCareerModal opened={newOpen} onClose={() => setNewOpen(false)} onDone={afterImport} />
       {current && (
         <UpdateCareerModal

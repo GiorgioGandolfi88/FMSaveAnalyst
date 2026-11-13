@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from fmsa.config import SettingsStore
 from fmsa.db import open_reader, q
+from fmsa.ingest.readers import CATEGORIES
 from fmsa.query.browse import BrowseError, build_browse_sql
 from fmsa.query.export import EXTENSIONS, ExportFormat, write_export
 from fmsa.query.masking import ALWAYS_HIDDEN_COLUMNS
@@ -36,9 +37,11 @@ def describe_schema(db_path: Path, masked: set[tuple[str, str]]) -> list[dict[st
         catalog: dict[str, dict[str, Any]] = {}
         with contextlib.suppress(sqlite3.OperationalError):
             catalog = {
-                r[0]: {"reader": r[1], "kind": r[2], "parent": r[3], "base_table": r[4]}
+                r[0]: {"reader": r[1], "kind": r[2], "parent": r[3], "base_table": r[4],
+                       "record_type": r[5]}
                 for r in conn.execute(
-                    "SELECT table_name, reader, kind, parent_table, base_table FROM _tables"
+                    "SELECT table_name, reader, kind, parent_table, base_table, record_type "
+                    "FROM _tables"
                 )
             }
         sources: dict[tuple[str, str], tuple[str, str]] = {}
@@ -55,15 +58,19 @@ def describe_schema(db_path: Path, masked: set[tuple[str, str]]) -> list[dict[st
         ).fetchall()
         result = []
         for name, obj_type in objects:
-            is_history = name.endswith("_all") and name.removesuffix("_all") in catalog
-            logical = name.removesuffix("_all") if is_history else name
+            logical = name
+            for suffix in ("_all", "_history"):
+                if name.endswith(suffix) and name.removesuffix(suffix) in catalog:
+                    logical = name.removesuffix(suffix)
+            is_history = logical != name
             info = catalog.get(logical, {})
+            record_type = info.get("record_type") or ""
             if name.startswith("ref_"):
                 group = "reference"
             elif is_history:
                 group = "history"
             elif info:
-                group = "data"
+                group = CATEGORIES.get(record_type, "other")
             else:
                 group = "derived"
             columns = []

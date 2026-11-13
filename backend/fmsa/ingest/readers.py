@@ -2,14 +2,14 @@
 
 Storage kinds (see docs/fmsave-schema.md for the evidence behind each choice):
 
-- ENTITY: one current version per key, older versions kept (`_valid_from` / `_valid_to`
-  import ids). A new version is written only when something changed, so attribute and ability
+- ENTITY: one current version per key in the type's table; replaced versions are moved to
+  `<Type>_history` (`_valid_from` / `_valid_to` import ids). A new version is written only when something changed, so attribute and ability
   progression is available without storing identical copies.
 - EVENT: things that happened (matches, injuries, season history). Accumulated across imports
   and deduplicated by key, because a save only keeps a time window of them. A record whose
   values change (a fixture that gets played) is updated in place.
-- SNAPSHOT: tables without a stable key, or meaningful only "as of" a date; stored whole for
-  every import.
+- SNAPSHOT: tables without a stable key, or meaningful only "as of" a date; the type's table
+  holds the last import's copy, earlier copies are moved to `<Type>_history`.
 - LATEST: only the most recent import is kept (replaced every time). Used for the running
   season's statistics: completed seasons are already kept, per season, by
   player_season_history, so earlier copies would only duplicate them.
@@ -37,14 +37,28 @@ class ReaderSpec:
     kind: Kind
     key: tuple[str, ...] = ()  # empty for EVENT: the whole row is the key
     exclude: frozenset[str] = frozenset()
+    # "table": save.<name>() returns a fmsave Table; "property": save.<name> is one record;
+    # "method": save.<name>() returns one record (both stored as a one-row table)
+    source: str = "table"
+    attr: str = ""  # fmsave attribute when it differs from the table name
+
+    @property
+    def fmsave_name(self) -> str:
+        return self.attr or self.name
 
 
 E, V, S, L = Kind.ENTITY, Kind.EVENT, Kind.SNAPSHOT, Kind.LATEST
 
 READER_GROUPS: tuple[tuple[ReaderSpec, ...], ...] = (
     (
-        # contract and suspensions are also readers of their own
-        ReaderSpec("players", E, ("uid", "birth_date"), frozenset({"contract", "suspensions"})),
+        # save metadata (fmsave Save.info): build, game date, summary strings, sections
+        ReaderSpec("save_info", S, source="property", attr="info"),
+        # FM27 only: partially decoded raw fixture and rules records (fmsave experimental)
+        ReaderSpec("experimental_span", S, source="method"),
+    ),
+    (
+        # contract and suspensions are also readers of their own, but are kept here too
+        ReaderSpec("players", E, ("uid", "birth_date")),
         ReaderSpec("contracts", E, ("player_uid",)),
         ReaderSpec("suspensions", V, ("player_uid", "issued_date", "scope_code", "competition_id")),
     ),
@@ -101,3 +115,34 @@ READER_GROUPS: tuple[tuple[ReaderSpec, ...], ...] = (
 )
 
 ALL_READERS: tuple[ReaderSpec, ...] = tuple(r for g in READER_GROUPS for r in g)
+
+# Record type -> category, as in fmsave's documentation (used to group tables in the UI).
+CATEGORIES: dict[str, str] = {
+    **dict.fromkeys(
+        ("Player", "Attributes", "Ability", "Reputation", "Positions", "Personality", "Contract",
+         "Clause", "ContractChainEntry", "PlayerSuspension", "Suspension", "Staff",
+         "StaffAttributes", "StaffPreferences", "StaffList"),
+        "people",
+    ),
+    **dict.fromkeys(
+        ("Club", "Team", "ClubFacilities", "Stadium", "FinanceMonth", "Sponsorship",
+         "AffiliateGroup", "JobVacancy"),
+        "clubs",
+    ),
+    "Nation": "nations",
+    **dict.fromkeys(
+        ("Stage", "Competition", "Fixture", "Official", "LeagueTable", "LeagueTableSplit",
+         "LeagueTableMatch", "LeagueTableRow", "TransferWindow", "CompetitionRules", "RulesRound",
+         "PlayerMatchStats", "TeamMatchStats"),
+        "competitions",
+    ),
+    **dict.fromkeys(("PlayerSeasonStats", "PlayerSeasonHistory"), "season_stats"),
+    **dict.fromkeys(("InjuryType", "InjuryRecord"), "injuries"),
+    **dict.fromkeys(
+        ("ManagedClub", "Tactic", "TacticSlot", "TacticSettingUnit", "SetPieceRoutine",
+         "Selection", "TeamTraining", "TrainingSchedule", "TrainingWeek", "TrainingDay",
+         "MentoringGroup", "SquadPlannerSlot"),
+        "managed",
+    ),
+    **dict.fromkeys(("SaveInfo", "Fm27Span"), "save"),
+}  # fmt: skip

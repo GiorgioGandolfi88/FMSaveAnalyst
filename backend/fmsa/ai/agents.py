@@ -54,7 +54,7 @@ AGENTS: dict[str, Agent] = {
                 "it": "Segue la crescita dei giovani tra un import e l'altro.",
                 "en": "Tracks young players' growth between imports.",
             },
-            "You are the head of youth development. Use the history tables (players_all with "
+            "You are the head of youth development. Use the history (Player_all with "
             "_valid_from / _valid_to joined to _imports.game_date) to measure growth over time, "
             "and suggest who deserves minutes, loans or a new contract.",
         ),
@@ -65,8 +65,8 @@ AGENTS: dict[str, Agent] = {
                 "it": "Saldo, budget, monte ingaggi e sostenibilità.",
                 "en": "Balance, budgets, wage bill and sustainability.",
             },
-            "You are the finance director. Analyse finances (monthly rows), contracts and wages, "
-            "sponsorships; flag risks and suggest where to save or invest. Money values are in "
+            "You are the finance director. Analyse FinanceMonth (monthly rows), Contract and wages, "
+            "Sponsorship; flag risks and suggest where to save or invest. Money values are in "
             "the game's internal unit; do not convert currencies.",
         ),
         Agent(
@@ -76,8 +76,8 @@ AGENTS: dict[str, Agent] = {
                 "it": "Risultati, rendimento stagionale, classifiche e statistiche.",
                 "en": "Results, season form, league tables and statistics.",
             },
-            "You are the match analyst. Use fixtures, league_tables (+ __rows), "
-            "player_season_stats and player_season_history to explain form, strengths, "
+            "You are the match analyst. Use Fixture, TeamMatchStats, LeagueTable / LeagueTableRow, "
+            "PlayerSeasonStats and PlayerSeasonHistory to explain form, strengths, "
             "weaknesses and standout performers.",
         ),
     )
@@ -93,10 +93,12 @@ Career: {career_name} ({game}). Latest imported in-game date: {today}. \
 How to work:
 - The data is a SQLite database built from the user's saves. Use the tools to look at it; never \
 invent numbers. Start with list_tables / describe_table when unsure, then run focused SQL.
-- Key facts: players and staff are identified by uid (+ birth_date across history). Views hold the \
-current state; <name>_all tables keep every version (_valid_from/_valid_to are import ids, see \
-_imports). Enum-like text values are lowercase in some tables (e.g. player_season_history.kind = \
-'league'). Ability values are on Football Manager's 1-200 scale; attributes on 1-20.
+- Key facts: every table is named like its fmsave record type (Player, Club, Fixture, \
+LeagueTableRow, ...), holds the current state and uses fmsave's own column names. Nested records \
+link to their parent with _parent_table / _parent_rid = parent._rid. Players and staff are \
+identified by uid (+ birth_date across history). <Type>_all views add earlier versions \
+(_valid_from/_valid_to are import ids, see _imports). Enum-like text values are lowercase in \
+some tables (e.g. PlayerSeasonHistory.kind = 'league'). Ability values are on Football Manager's 1-200 scale; attributes on 1-20.
 - Hidden columns: {masked}. They always read as NULL; never try to deduce or estimate them, and \
 do not mention their value even if asked.
 - Keep each query small and aggregated; the user may review every result before it is sent \

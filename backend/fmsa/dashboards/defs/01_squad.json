@@ -1,25 +1,109 @@
 {
-  "id": "squad",
-  "order": 1,
-  "title": {"it": "Panoramica rosa", "en": "Squad overview"},
-  "description": {"it": "La rosa del club scelto: età, abilità, valore e contratti.", "en": "The chosen club's squad: age, ability, value and contracts."},
-  "params": ["club"],
-  "widgets": [
-    {"id": "players", "type": "kpi", "span": 3, "format": "int", "title": {"it": "Giocatori", "en": "Players"},
-     "sql": "SELECT count(*) AS value FROM players WHERE club_uid = :club"},
-    {"id": "age", "type": "kpi", "span": 3, "format": "decimal", "title": {"it": "Età media", "en": "Average age"},
-     "sql": "SELECT round(avg(age), 1) AS value FROM players WHERE club_uid = :club"},
-    {"id": "ca", "type": "kpi", "span": 3, "format": "decimal", "title": {"it": "Abilità attuale media", "en": "Average current ability"},
-     "sql": "SELECT round(avg(ability_current), 1) AS value FROM players WHERE club_uid = :club"},
-    {"id": "value", "type": "kpi", "span": 3, "format": "money", "title": {"it": "Valore della rosa", "en": "Squad value"},
-     "sql": "SELECT sum(transfer_value) AS value FROM players WHERE club_uid = :club"},
-    {"id": "ca_bar", "type": "bar", "span": 6, "horizontal": true, "x": "name", "y": "ability_current",
-     "title": {"it": "Abilità attuale (i migliori 20)", "en": "Current ability (top 20)"},
-     "sql": "SELECT name, ability_current FROM players WHERE club_uid = :club ORDER BY ability_current DESC LIMIT 20"},
-    {"id": "age_ca", "type": "scatter", "span": 6, "x": "age", "y": "ability_current", "label": "name",
-     "title": {"it": "Età e abilità attuale", "en": "Age and current ability"},
-     "sql": "SELECT name, age, ability_current FROM players WHERE club_uid = :club"},
-    {"id": "list", "type": "table", "span": 12, "title": {"it": "Rosa", "en": "Squad"},
-     "sql": "SELECT p.name, p.age, p.natural_positions AS positions, p.ability_current, p.ability_potential, p.transfer_value, c.wage, c.\"end\" AS contract_end, c.squad_status_label AS squad_status FROM players p LEFT JOIN contracts c ON c.player_uid = p.uid WHERE p.club_uid = :club ORDER BY p.ability_current DESC"}
-  ]
+ "id": "squad",
+ "order": 1,
+ "title": {
+  "it": "Panoramica rosa",
+  "en": "Squad overview"
+ },
+ "description": {
+  "it": "La rosa del club scelto: età, abilità, valore e contratti.",
+  "en": "The chosen club's squad: age, ability, value and contracts."
+ },
+ "params": [
+  "club"
+ ],
+ "widgets": [
+  {
+   "id": "players",
+   "type": "kpi",
+   "span": 3,
+   "format": "int",
+   "title": {
+    "it": "Giocatori",
+    "en": "Players"
+   },
+   "sql": "SELECT count(*) AS value FROM Player WHERE club_uid = :club"
+  },
+  {
+   "id": "age",
+   "type": "kpi",
+   "span": 3,
+   "format": "decimal",
+   "title": {
+    "it": "Età media",
+    "en": "Average age"
+   },
+   "sql": "SELECT round(avg(age), 1) AS value FROM Player WHERE club_uid = :club"
+  },
+  {
+   "id": "ca",
+   "type": "kpi",
+   "span": 3,
+   "format": "decimal",
+   "title": {
+    "it": "Abilità attuale media",
+    "en": "Average current ability"
+   },
+   "sql": "SELECT round(avg(ability_current), 1) AS value FROM Player WHERE club_uid = :club"
+  },
+  {
+   "id": "value",
+   "type": "kpi",
+   "span": 3,
+   "format": "money",
+   "title": {
+    "it": "Valore della rosa",
+    "en": "Squad value"
+   },
+   "sql": "SELECT sum(transfer_value) AS value FROM Player WHERE club_uid = :club"
+  },
+  {
+   "id": "ca_bar",
+   "type": "bar",
+   "span": 6,
+   "horizontal": true,
+   "x": "name",
+   "y": "ability_current",
+   "title": {
+    "it": "Abilità attuale (i migliori {top})",
+    "en": "Current ability (best {top})"
+   },
+   "sql": "SELECT name, ability_current FROM Player WHERE club_uid = :club ORDER BY ability_current DESC LIMIT :top"
+  },
+  {
+   "id": "age_ca",
+   "type": "scatter",
+   "span": 6,
+   "x": "age",
+   "y": "ability_current",
+   "label": "name",
+   "title": {
+    "it": "Età e abilità attuale",
+    "en": "Age and current ability"
+   },
+   "sql": "SELECT name, age, ability_current FROM Player WHERE club_uid = :club"
+  },
+  {
+   "id": "list",
+   "type": "table",
+   "span": 12,
+   "title": {
+    "it": "Rosa",
+    "en": "Squad"
+   },
+   "sql": "SELECT p.name, p.age, p.natural_positions AS positions, p.ability_current, p.ability_potential, p.transfer_value, c.wage, c.\"end\" AS contract_end, c.squad_status FROM Player p LEFT JOIN Contract c ON c.player_uid = p.uid WHERE p.club_uid = :club ORDER BY p.ability_current DESC"
+  }
+ ],
+ "inputs": [
+  {
+   "id": "top",
+   "default": 20,
+   "label": {
+    "it": "Giocatori nel grafico",
+    "en": "Players in the chart"
+   },
+   "min": 5,
+   "max": 100
+  }
+ ]
 }

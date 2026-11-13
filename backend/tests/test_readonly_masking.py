@@ -205,3 +205,13 @@ def test_masked_column_keeps_its_name_in_joins(db: Path) -> None:
         r = s.query('SELECT t1."ability_potential", t1.name FROM players AS t1')
     assert r.columns == ["ability_potential", "name"]
     assert r.masked == ["ability_potential"]
+
+
+def test_rules_match_the_same_field_under_other_parents() -> None:
+    from fmsa.query.masking import MaskRules
+
+    rules = MaskRules.from_settings(MaskingSettings(hidden_attributes=True, personality=True))
+    assert rules.matches("attributes.consistency")
+    assert rules.matches("raw_attributes.consistency")
+    assert rules.matches("personality.ambition") and rules.matches("staff.personality.ambition")
+    assert not rules.matches("attributes.finishing")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import os
 import sqlite3
 import zipfile
@@ -31,9 +32,16 @@ def test_builtin_definitions_are_valid() -> None:
         for w in d["widgets"]:
             assert w["title"]["it"] and w["title"]["en"]
             # every named parameter used by the SQL is one the dashboard declares
-            for p in ("club", "competition", "season"):
+            for p in ("club", "competition", "season", "nation", "league"):
                 if f":{p}" in w["sql"]:
                     assert p in d["params"], (d["id"], w["id"], p)
+            # every other :name is an input with a default
+            inputs = {i["id"] for i in d["inputs"]}
+            for name in re.findall(r"(?<![:\w]):([a-z_][a-z0-9_]*)", w["sql"]):
+                assert name in inputs | set(d["params"]) | {"today"}, (d["id"], w["id"], name)
+            for text in w["title"].values():
+                for name in re.findall(r"\{(\w+)\}", text):
+                    assert name in inputs, (d["id"], w["id"], name)
 
 
 def test_user_dashboards_add_and_override(tmp_path: Path) -> None:
@@ -65,21 +73,21 @@ def career(tmp_path: Path) -> Path:
         INSERT INTO _imports VALUES (1, '2030-06-15', 'ok');
         CREATE TABLE _columns (table_name, column_name, sql_type, source_path, field_status,
                                position);
-        INSERT INTO _columns VALUES ('players', 'ability_potential', 'INTEGER',
-                                    'ability.potential', '', 0);
-        CREATE TABLE clubs (uid, name, reputation, gender_label);
-        INSERT INTO clubs VALUES (1, 'Women FC', 9000, 'WOMEN'), (2, 'Men FC', 5000, 'MEN');
-        CREATE TABLE players (uid, name, age, club_uid, ability_current, ability_potential,
+        INSERT INTO _columns VALUES ('Player', 'ability_potential', 'INTEGER',
+                                    'Player.ability.potential', '', 0);
+        CREATE TABLE Club (uid, name, reputation, gender, nation_id);
+        INSERT INTO Club VALUES (1, 'Women FC', 9000, 'women', 5), (2, 'Men FC', 5000, 'men', 5);
+        CREATE TABLE Player (uid, name, age, club_uid, ability_current, ability_potential,
                               transfer_value, natural_positions, birth_date);
-        INSERT INTO players VALUES (10, 'A', 20, 2, 120, 170, 1000, '["ST"]', '2010-01-01'),
+        INSERT INTO Player VALUES (10, 'A', 20, 2, 120, 170, 1000, '["ST"]', '2010-01-01'),
                                    (11, 'B', 30, 2, 140, 150, 3000, '["GK"]', '1999-01-01');
-        CREATE TABLE contracts (player_uid, club_uid, wage, "end", squad_status_label,
+        CREATE TABLE Contract (player_uid, club_uid, wage, "end", squad_status,
                                 player_name);
-        INSERT INTO contracts VALUES (10, 2, 500, '2031-01-01', 'KEY', 'A');
-        CREATE TABLE player_season_history (season_year, kind, player_uid);
-        INSERT INTO player_season_history VALUES (2030, 'league', 10);
+        INSERT INTO Contract VALUES (10, 2, 500, '2031-01-01', 'KEY', 'A');
+        CREATE TABLE PlayerSeasonHistory (season_year, kind, player_uid);
+        INSERT INTO PlayerSeasonHistory VALUES (2030, 'league', 10);
         WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 20)
-        INSERT INTO player_season_history SELECT 2029, 'league', i FROM n;
+        INSERT INTO PlayerSeasonHistory SELECT 2029, 'league', i FROM n;
         """
     )
     conn.commit()
@@ -91,7 +99,8 @@ def test_params_and_partial_failures(career: Path) -> None:
     with open_career(career, MaskingSettings()) as s:
         p = param_options(s)
         assert p["today"] == "2030-06-15"
-        assert p["club"]["options"][0] == {"value": 2, "label": "Men FC"}
+        assert p["club"]["options"][0] == {"value": 2, "label": "Men FC", "nation": 5, "leagues": []}
+        assert p["nation"]["options"][0]["label"] == "#5 · Women FC, Men FC"
         assert p["club"]["options"][1]["label"] == "Women FC ♀"
         assert p["season"]["default"] == 2029  # 2030 has barely started
         assert p["competition"]["options"] == []  # no league tables in this fixture

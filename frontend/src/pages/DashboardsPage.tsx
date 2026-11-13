@@ -8,6 +8,7 @@ import {
   Group,
   Loader,
   Menu,
+  NumberInput,
   Paper,
   SegmentedControl,
   Select,
@@ -22,6 +23,7 @@ import {
   IconChartBar,
   IconDots,
   IconFileZip,
+  IconRestore,
   IconTable,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -50,14 +52,27 @@ interface Props {
 type ParamValues = Record<string, string | number | null>;
 
 function inlineParams(sql: string, values: ParamValues & { today?: string | null }): string {
-  return sql.replace(/:(club|competition|season|today)\b/g, (_, name: string) => {
+  return sql.replace(/(?<![:\w]):([a-z_][a-z0-9_]*)\b/g, (whole, name: string) => {
+    if (!(name in values)) return whole;
     const v = values[name];
     if (v === null || v === undefined) return "NULL";
     return typeof v === "number" ? String(v) : `'${String(v).replace(/'/g, "''")}'`;
   });
 }
 
-function KpiTile({ w, data, lang }: { w: DashboardWidget; data: QueryResult; lang: string }) {
+/** Titles can show input values: "Under {max_age}". */
+function fillTitle(text: string, values: ParamValues): string {
+  return text.replace(/\{(\w+)\}/g, (whole, name: string) =>
+    values[name] === null || values[name] === undefined ? whole : String(values[name]));
+}
+
+function inputDefaults(d: Dashboard): ParamValues {
+  return Object.fromEntries((d.inputs ?? []).map((i) => [i.id, i.default]));
+}
+
+function KpiTile({ w, data, lang, values }: {
+  w: DashboardWidget; data: QueryResult; lang: string; values: ParamValues;
+}) {
   const raw = data.rows[0]?.[0];
   let value = "—";
   if (raw !== null && raw !== undefined) {
@@ -68,7 +83,7 @@ function KpiTile({ w, data, lang }: { w: DashboardWidget; data: QueryResult; lan
   const masked = data.masked.length > 0 && (raw === null || raw === undefined);
   return (
     <Stack gap={2}>
-      <Text size="sm" c="dimmed">{localized(w.title, lang)}</Text>
+      <Text size="sm" c="dimmed">{fillTitle(localized(w.title, lang), values)}</Text>
       <Text fz={28} fw={600} lh={1.2}>{masked ? "🔒" : value}</Text>
     </Stack>
   );
@@ -98,7 +113,7 @@ function WidgetCard({ w, data, lang, values, onOpenInQuery, onNotice }: {
   let body;
   if (!data) body = <Loader size="sm" />;
   else if ("error" in data) body = <Alert color="red" py={4}>{data.error}</Alert>;
-  else if (w.type === "kpi") body = <KpiTile w={w} data={data} lang={lang} />;
+  else if (w.type === "kpi") body = <KpiTile w={w} data={data} lang={lang} values={values} />;
   else if (data.row_count === 0) body = <Text size="sm" c="dimmed">{t("dash.noData")}</Text>;
   else if (view === "table" || w.type === "table")
     body = <div style={{ height: w.type === "table" ? 360 : 300 }}><ResultGrid result={data} /></div>;
@@ -108,7 +123,7 @@ function WidgetCard({ w, data, lang, values, onOpenInQuery, onNotice }: {
     <Paper withBorder p="sm" h="100%">
       {w.type !== "kpi" && (
         <Group justify="space-between" mb={6} wrap="nowrap">
-          <Text fw={600} size="sm">{localized(w.title, lang)}</Text>
+          <Text fw={600} size="sm">{fillTitle(localized(w.title, lang), values)}</Text>
           <Group gap={4} wrap="nowrap">
             {w.type !== "table" && (
               <SegmentedControl size="xs" value={view} onChange={(v) => setView(v as "chart" | "table")}
@@ -156,7 +171,10 @@ export default function DashboardsPage({ onOpenInQuery }: Props) {
       .then(([l, p]) => {
         setList(l);
         setParams(p);
-        setValues({ club: p.club.default, competition: p.competition.default, season: p.season.default });
+        setValues({
+          club: p.club.default, competition: p.competition.default, season: p.season.default,
+          nation: null, league: null,
+        });
       })
       .catch((e) => setError(String(e)));
   }, []);
@@ -179,20 +197,45 @@ export default function DashboardsPage({ onOpenInQuery }: Props) {
   const open = async (id: string) => {
     try {
       const d = await dashboardsApi.get(id);
+      const next = { ...values, ...inputDefaults(d) };
       setCurrent(d);
-      void load(d, values);
+      setValues(next);
+      void load(d, next);
     } catch (e) {
       setError(String(e));
     }
   };
+
+  const usesParam = (name: string) => !!current && current.params.includes(name);
 
   const setParam = (name: string, value: string | null) => {
     const opts = params?.[name as "club"]?.options ?? [];
     const match = opts.find((o) => String(o.value) === value);
     const next = { ...values, [name]: match ? match.value : null };
     setValues(next);
-    if (current) void load(current, next);
+    // on dashboards that do not filter on them, nation and league only narrow the club list
+    if (current && usesParam(name)) void load(current, next);
   };
+
+  const setInput = (name: string, value: string | number) => {
+    setValues((v) => ({ ...v, [name]: typeof value === "number" ? value : null }));
+  };
+  const applyInputs = () => { if (current) void load(current, values); };
+  const resetInputs = () => {
+    if (!current) return;
+    const next = { ...values, ...inputDefaults(current) };
+    setValues(next);
+    void load(current, next);
+  };
+
+  const clubOptions = useMemo(() => {
+    const all = params?.club.options ?? [];
+    const nation = values.nation;
+    const league = values.league;
+    return all.filter((o) =>
+      (nation === null || nation === undefined || o.nation === nation) &&
+      (league === null || league === undefined || (o.leagues ?? []).includes(Number(league))));
+  }, [params, values.nation, values.league]);
 
   const zip = async (format: ExportFormat) => {
     if (!current) return;
@@ -255,19 +298,50 @@ export default function DashboardsPage({ onOpenInQuery }: Props) {
       </Group>
       <Text size="sm" c="dimmed">{localized(current.description, lang)}</Text>
 
-      {current.params.length > 0 && (
-        <Group gap="sm">
-          {current.params.map((p) => {
-            const opts = params[p as "club"].options;
-            return (
-              <Select key={p} w={p === "season" ? 140 : 320} label={t(`dash.params.${p}`)} searchable
-                allowDeselect={false} limit={200}
-                value={values[p] === null || values[p] === undefined ? null : String(values[p])}
-                data={opts.map((o) => ({ value: String(o.value), label: o.label }))}
-                onChange={(v) => setParam(p, v)} nothingFoundMessage="—" />
-            );
-          })}
-        </Group>
+      {(current.params.length > 0 || (current.inputs ?? []).length > 0) && (
+        <Paper withBorder p="sm">
+          <Group gap="sm" align="flex-end">
+            {(usesParam("club") || usesParam("nation")) && (
+              <Select w={260} label={usesParam("club") ? t("dash.params.clubNation") : t("dash.params.nation")}
+                searchable clearable limit={300} placeholder={t("dash.all")}
+                value={values.nation === null || values.nation === undefined ? null : String(values.nation)}
+                data={params.nation.options.map((o) => ({ value: String(o.value), label: o.label }))}
+                onChange={(v) => setParam("nation", v)} nothingFoundMessage="—" />
+            )}
+            {(usesParam("club") || usesParam("league")) && (
+              <Select w={300} label={usesParam("club") ? t("dash.params.clubLeague") : t("dash.params.league")}
+                searchable clearable limit={300} placeholder={t("dash.all")}
+                value={values.league === null || values.league === undefined ? null : String(values.league)}
+                data={params.league.options.map((o) => ({ value: String(o.value), label: o.label }))}
+                onChange={(v) => setParam("league", v)} nothingFoundMessage="—" />
+            )}
+            {current.params.filter((p) => p !== "nation" && p !== "league").map((p) => {
+              const opts = p === "club" ? clubOptions : params[p as "club"].options;
+              return (
+                <Select key={p} w={p === "season" ? 140 : 320} label={t(`dash.params.${p}`)} searchable
+                  allowDeselect={false} limit={300}
+                  value={values[p] === null || values[p] === undefined ? null : String(values[p])}
+                  data={opts.map((o) => ({ value: String(o.value), label: o.label }))}
+                  onChange={(v) => setParam(p, v)} nothingFoundMessage="—" />
+              );
+            })}
+            {(current.inputs ?? []).map((i) => (
+              <NumberInput key={i.id} w={170} label={localized(i.label, lang)} min={i.min} max={i.max}
+                value={values[i.id] ?? i.default} onChange={(v) => setInput(i.id, v)}
+                onBlur={applyInputs} onKeyDown={(e) => { if (e.key === "Enter") applyInputs(); }} />
+            ))}
+            {(current.inputs ?? []).length > 0 && (
+              <Tooltip label={t("dash.resetInputs")}>
+                <ActionIcon variant="default" size="lg" onClick={resetInputs} aria-label={t("dash.resetInputs")}>
+                  <IconRestore size={16} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </Group>
+          {(current.inputs ?? []).length > 0 && (
+            <Text size="xs" c="dimmed" mt={6}>{t("dash.inputsHint")}</Text>
+          )}
+        </Paper>
       )}
       {notice && (
         <Alert color={notice.ok ? "teal" : "red"} withCloseButton onClose={() => setNotice(null)} py={6}>

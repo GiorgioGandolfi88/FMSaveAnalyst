@@ -18,15 +18,16 @@ Un file con lo stesso `id` di una dashboard inclusa la sostituisce. I file non v
   "widgets": [
     {"id": "n", "type": "kpi", "span": 3, "format": "int",
      "title": {"it": "Giocatori", "en": "Players"},
-     "sql": "SELECT count(*) AS value FROM players WHERE club_uid = :club"},
+     "sql": "SELECT count(*) AS value FROM Player WHERE club_uid = :club"},
     {"id": "ca", "type": "bar", "span": 6, "horizontal": true, "x": "name", "y": "ability_current",
      "title": {"it": "Abilità attuale", "en": "Current ability"},
-     "sql": "SELECT name, ability_current FROM players WHERE club_uid = :club ORDER BY 2 DESC LIMIT 20"}
+     "sql": "SELECT name, ability_current FROM Player WHERE club_uid = :club ORDER BY 2 DESC LIMIT 20"}
   ]
 }
 ```
 
-- **`params`**: i filtri mostrati sopra la dashboard. I valori possibili sono `club`, `competition` e `season`. Nell'SQL si usano come `:club`, `:competition` e `:season`. È sempre disponibile anche `:today`, la data di gioco dell'ultimo import.
+- **`params`**: i filtri mostrati sopra la dashboard. I valori possibili sono `club`, `competition`, `season`, `nation` e `league`. Nell'SQL si usano come `:club`, `:competition`, `:season`, `:nation` e `:league`. `nation` (nazione del club) e `league` (lega) sono facoltativi: valgono `NULL` quando l'utente sceglie "Tutte", quindi nell'SQL si scrivono come `(:nation IS NULL OR club_nation_id = :nation)`. Nelle dashboard con `club` la nazione e la lega compaiono comunque, per restringere l'elenco dei club. È sempre disponibile anche `:today`, la data di gioco dell'ultimo import.
+- **`inputs`**: numeri che l'utente può cambiare (soglie, età, mesi, quanti giocatori mostrare). Esempio: `{"id": "min_ca", "default": 120, "min": 1, "max": 200, "label": {"it": "Abilità attuale minima", "en": "Minimum current ability"}}`. Nell'SQL si usa `:min_ca` (anche in `LIMIT :top`); nei titoli dei widget `{min_ca}` mostra il valore scelto. Il pulsante accanto ai campi ripristina i valori predefiniti.
 - **`span`**: la larghezza del widget su 12 colonne.
 - **Tipi di widget**:
 

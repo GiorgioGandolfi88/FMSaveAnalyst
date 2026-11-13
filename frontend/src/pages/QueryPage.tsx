@@ -38,6 +38,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { dataApi, type QueryResult, type SavedQuery, type Schema } from "../api";
 import ExportMenu from "../components/ExportMenu";
+import ResizableArea from "../components/ResizableArea";
 import ResultGrid from "../components/ResultGrid";
 import SqlEditor from "../components/SqlEditor";
 import TableNode, { type TableNodeType } from "../components/TableNode";
@@ -315,7 +316,7 @@ export default function QueryPage({ schema, initialSql, onInitialSqlUsed }: Prop
             addTable(v);
             setTableSearch("");
           }}
-          data={["data", "derived", "reference", "history"].map((g) => ({
+          data={["people", "clubs", "nations", "competitions", "season_stats", "injuries", "managed", "save", "other", "derived", "reference", "history"].map((g) => ({
             group: t(`explore.groups.${g}`),
             items: schema.objects.filter((o) => o.group === g).map((o) => o.name),
           }))}
@@ -324,7 +325,8 @@ export default function QueryPage({ schema, initialSql, onInitialSqlUsed }: Prop
           {t("query.builderHint")}
         </Text>
       </Group>
-      <Paper withBorder h={380}>
+      <ResizableArea id="query.canvas" defaultHeight={380} minHeight={150}>
+      <Paper withBorder h="100%">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -341,6 +343,7 @@ export default function QueryPage({ schema, initialSql, onInitialSqlUsed }: Prop
           <Controls showInteractive={false} />
         </ReactFlow>
       </Paper>
+      </ResizableArea>
 
       <Tabs defaultValue="columns" variant="outline">
         <Tabs.List>
@@ -473,7 +476,9 @@ export default function QueryPage({ schema, initialSql, onInitialSqlUsed }: Prop
       {built.warnings.map((w) => (
         <Text key={w} size="xs" c="orange">{t(w)}</Text>
       ))}
-      <SqlEditor value={built.sql} readOnly height={150} />
+      <ResizableArea id="query.builtSql" defaultHeight={150} minHeight={60}>
+        <SqlEditor value={built.sql} readOnly height="100%" />
+      </ResizableArea>
     </Stack>
   );
 
@@ -521,7 +526,9 @@ export default function QueryPage({ schema, initialSql, onInitialSqlUsed }: Prop
 
       {mode === "builder" ? builder : (
         <Stack gap={4}>
-          <SqlEditor value={sql} onChange={setSql} onRun={() => run(sql)} schema={schema} height={260} />
+          <ResizableArea id="query.sql" defaultHeight={260} minHeight={80}>
+            <SqlEditor value={sql} onChange={setSql} onRun={() => run(sql)} schema={schema} height="100%" />
+          </ResizableArea>
           <Text size="xs" c="dimmed">{t("query.sqlHint")}</Text>
         </Stack>
       )}
@@ -544,9 +551,9 @@ export default function QueryPage({ schema, initialSql, onInitialSqlUsed }: Prop
             <ExportMenu source={lastRunSql ? { sql: lastRunSql } : null} baseName="query"
               onResult={(msg, ok) => setNotice({ msg, ok })} />
           </Group>
-          <div style={{ height: 420 }}>
+          <ResizableArea id="query.results" defaultHeight={420} minHeight={120}>
             <ResultGrid result={result} />
-          </div>
+          </ResizableArea>
         </Stack>
       )}
 

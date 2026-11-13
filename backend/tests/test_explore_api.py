@@ -24,26 +24,30 @@ def client(tmp_path: Path) -> TestClient:
         """
         CREATE TABLE _tables (table_name, base_table, reader, kind, parent_table, record_type,
                               key_columns);
-        INSERT INTO _tables VALUES ('players', 'players_all', 'players', 'entity', NULL, 'P', '[]'),
-                                   ('clubs', 'clubs_all', 'clubs', 'entity', NULL, 'C', '[]'),
-                                   ('clubs__teams', 'clubs__teams_all', 'clubs', 'child', 'clubs',
-                                    'T', NULL);
+        INSERT INTO _tables VALUES ('players', 'players_history', 'players', 'entity', NULL,
+                                    'Player', '[]'),
+                                   ('Club', 'Club_history', 'clubs', 'entity', NULL, 'Club', '[]'),
+                                   ('Team', 'Team_history', 'clubs', 'child', 'Club', 'Team',
+                                    NULL);
         CREATE TABLE _columns (table_name, column_name, sql_type, source_path, field_status,
                                position);
         INSERT INTO _columns VALUES ('players', 'ability_potential', 'INTEGER',
-                                     'ability.potential', '', 0);
-        CREATE TABLE players_all (_rid INTEGER PRIMARY KEY, uid INTEGER, name TEXT,
+                                     'Player.ability.potential', '', 0);
+        CREATE TABLE players (_rid INTEGER PRIMARY KEY, uid INTEGER, name TEXT,
             birth_date TEXT, club_uid INTEGER, ability_potential INTEGER);
-        INSERT INTO players_all VALUES
+        INSERT INTO players VALUES
             (1, 1, 'Mario Rossi', '2000-01-10', 10, 180),
             (2, 2, 'Luca Bianchi', '1995-05-05', 10, 150),
             (3, 3, 'Paolo 100%_Neri', '2004-03-03', 20, 170);
-        CREATE VIEW players AS SELECT * FROM players_all;
-        CREATE TABLE clubs_all (_rid INTEGER PRIMARY KEY, uid INTEGER, name TEXT);
-        INSERT INTO clubs_all VALUES (1, 10, 'Juventus'), (2, 20, 'Torino');
-        CREATE VIEW clubs AS SELECT * FROM clubs_all;
-        CREATE TABLE clubs__teams_all (_rid INTEGER PRIMARY KEY, _parent_rid, team_id);
-        CREATE VIEW clubs__teams AS SELECT * FROM clubs__teams_all;
+        CREATE TABLE players_history AS SELECT *, NULL AS _valid_to FROM players WHERE 0;
+        CREATE VIEW players_all AS SELECT *, NULL AS _valid_to FROM players;
+        CREATE TABLE Club (_rid INTEGER PRIMARY KEY, uid INTEGER, name TEXT);
+        INSERT INTO Club VALUES (1, 10, 'Juventus'), (2, 20, 'Torino');
+        CREATE TABLE Club_history AS SELECT * FROM Club WHERE 0;
+        CREATE VIEW Club_all AS SELECT * FROM Club;
+        CREATE TABLE Team (_rid INTEGER PRIMARY KEY, _parent_table, _parent_rid, team_id);
+        CREATE TABLE Team_history AS SELECT * FROM Team WHERE 0;
+        CREATE VIEW Team_all AS SELECT * FROM Team;
         """
     )
     conn.commit()
@@ -129,7 +133,8 @@ def test_saved_queries_roundtrip(client: TestClient) -> None:
 def test_relations_in_schema(client: TestClient) -> None:
     rel = client.get("/api/schema", headers=H).json()["relations"]
     pairs = {(r["from_table"], r["from_column"], r["to_table"], r["to_column"]) for r in rel}
-    assert ("players", "club_uid", "clubs", "uid") in pairs
-    assert ("players_all", "club_uid", "clubs", "uid") in pairs
-    assert ("clubs__teams", "_parent_rid", "clubs", "_rid") in pairs
-    assert ("clubs__teams_all", "_parent_rid", "clubs_all", "_rid") in pairs
+    assert ("players", "club_uid", "Club", "uid") in pairs
+    assert ("players_all", "club_uid", "Club", "uid") in pairs
+    assert ("Team", "_parent_rid", "Club", "_rid") in pairs
+    assert ("Team_all", "_parent_rid", "Club_all", "_rid") in pairs
+    assert ("Team_history", "_parent_rid", "Club_history", "_rid") in pairs

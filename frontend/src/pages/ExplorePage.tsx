@@ -4,6 +4,7 @@ import {
   Badge,
   Button,
   Checkbox,
+  Collapse,
   Group,
   Loader,
   NavLink,
@@ -15,8 +16,16 @@ import {
   TextInput,
   Title,
   Tooltip,
+  UnstyledButton,
 } from "@mantine/core";
-import { IconColumns, IconSearch, IconSitemap } from "@tabler/icons-react";
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconColumns,
+  IconInfoCircle,
+  IconSearch,
+  IconSitemap,
+} from "@tabler/icons-react";
 import type { GridApi, IDatasource, IGetRowsParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -31,7 +40,7 @@ export function sqlLiteral(v: unknown): string {
   return `'${String(v).replace(/'/g, "''")}'`;
 }
 
-const GROUP_ORDER = ["data", "derived", "reference", "history"] as const;
+const GROUP_ORDER = ["people", "clubs", "nations", "competitions", "season_stats", "injuries", "managed", "save", "other", "derived", "reference", "history"] as const;
 
 interface Props {
   schema: Schema;
@@ -43,7 +52,7 @@ export default function ExplorePage({ schema, onOpenInQuery }: Props) {
   const theme = useGridTheme();
   const [search, setSearch] = useState("");
   const [table, setTable] = useState<SchemaObject | null>(
-    schema.objects.find((o) => o.name === "players") ?? schema.objects[0] ?? null,
+    schema.objects.find((o) => o.name === "Player") ?? schema.objects[0] ?? null,
   );
   const [hidden, setHidden] = useState<Record<string, Set<string>>>({});
   const [total, setTotal] = useState<number | null>(null);
@@ -52,6 +61,14 @@ export default function ExplorePage({ schema, onOpenInQuery }: Props) {
   const [lastParams, setLastParams] = useState<unknown[]>([]);
   const [notice, setNotice] = useState<{ msg: string; ok: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // sections of the table list the user has closed (all open at first)
+  const [closed, setClosed] = useState<Set<string>>(new Set());
+  const toggleGroup = (g: string) => {
+    const next = new Set(closed);
+    if (next.has(g)) next.delete(g);
+    else next.add(g);
+    setClosed(next);
+  };
   const apiRef = useRef<GridApi | null>(null);
 
   const hiddenCols = useMemo(() => {
@@ -137,21 +154,39 @@ export default function ExplorePage({ schema, onOpenInQuery }: Props) {
           {GROUP_ORDER.map((g) => {
             const items = filtered.filter((o) => o.group === g);
             if (!items.length) return null;
+            // while searching every section shows its matches
+            const open = search.trim() !== "" || !closed.has(g);
             return (
               <Stack gap={0} key={g} mb="xs">
-                <Text size="xs" fw={700} c="dimmed" tt="uppercase" px={6} py={4}>
-                  {t(`explore.groups.${g}`)}
-                </Text>
-                {items.map((o) => (
-                  <NavLink
-                    key={o.name}
-                    label={o.name}
-                    active={table?.name === o.name}
-                    onClick={() => setTable(o)}
-                    py={3}
-                    styles={{ label: { fontSize: 13 } }}
-                  />
-                ))}
+                <Group gap={2} wrap="nowrap">
+                  <UnstyledButton onClick={() => toggleGroup(g)} px={4} py={4} style={{ flex: 1 }}
+                    aria-expanded={open}>
+                    <Group gap={4} wrap="nowrap">
+                      {open ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                      <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                        {t(`explore.groups.${g}`)}
+                      </Text>
+                      <Text size="xs" c="dimmed">({items.length})</Text>
+                    </Group>
+                  </UnstyledButton>
+                  {(g === "history" || g === "reference" || g === "derived") && (
+                    <Tooltip label={t(`explore.groupHelp.${g}`)} multiline w={320} withArrow position="right">
+                      <IconInfoCircle size={14} color="var(--mantine-color-dimmed)" />
+                    </Tooltip>
+                  )}
+                </Group>
+                <Collapse expanded={open}>
+                  {items.map((o) => (
+                    <NavLink
+                      key={o.name}
+                      label={o.name}
+                      active={table?.name === o.name}
+                      onClick={() => setTable(o)}
+                      py={3}
+                      styles={{ label: { fontSize: 13 } }}
+                    />
+                  ))}
+                </Collapse>
               </Stack>
             );
           })}
@@ -162,7 +197,14 @@ export default function ExplorePage({ schema, onOpenInQuery }: Props) {
         <Group justify="space-between">
           <Group gap="xs">
             <Title order={3}>{table?.name ?? t("nav.explore")}</Title>
-            {table?.kind && <Badge variant="light">{t(`explore.kinds.${table.kind}`, table.kind)}</Badge>}
+            {table?.kind && (
+              <Tooltip label={t(`explore.kindHelp.${table.group === "history" ? "history" : table.kind}`, "")}
+                multiline w={380} withArrow>
+                <Badge variant="light" style={{ cursor: "help" }}>
+                  {table.group === "history" ? t("explore.groups.history") : t(`explore.kinds.${table.kind}`, table.kind)}
+                </Badge>
+              </Tooltip>
+            )}
             {total !== null && (
               <Text size="sm" c="dimmed">
                 {t("explore.rows", { count: total })}

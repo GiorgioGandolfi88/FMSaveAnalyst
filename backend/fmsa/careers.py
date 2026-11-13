@@ -115,6 +115,28 @@ def import_history(path: Path) -> list[dict[str, Any]]:
     return imports
 
 
+def import_log(path: Path, import_id: int) -> dict[str, Any]:
+    """Per-reader, per-table detail of one import (see `_import_log`)."""
+    uri = f"{path.resolve().as_uri()}?mode=ro"
+    with contextlib.closing(sqlite3.connect(uri, uri=True)) as conn:
+        conn.row_factory = sqlite3.Row
+        imp = conn.execute(
+            "SELECT import_id, file_name, started_at, finished_at, duration_s, status, log_file "
+            "FROM _imports WHERE import_id = ?",
+            (import_id,),
+        ).fetchone()
+        try:
+            rows = [
+                dict(r)
+                for r in conn.execute(
+                    "SELECT * FROM _import_log WHERE import_id = ? ORDER BY seq", (import_id,)
+                )
+            ]
+        except sqlite3.OperationalError:  # careers created before the detailed log existed
+            rows = []
+    return {"import": dict(imp) if imp else None, "rows": rows}
+
+
 @dataclass(slots=True)
 class SaveFile:
     path: str
@@ -181,7 +203,8 @@ def _result_dict(r: ImportResult) -> dict[str, Any]:
 class JobRunner:
     """Runs one import at a time in a background thread."""
 
-    def __init__(self) -> None:
+    def __init__(self, log_dir: Path | None = None) -> None:
+        self.log_dir = log_dir
         self._lock = threading.Lock()
         self._jobs: dict[str, Job] = {}
         self._active: str | None = None
@@ -215,6 +238,7 @@ class JobRunner:
                     reference_db=reference_db,
                     career_name=career_name,
                     progress=progress,
+                    log_dir=self.log_dir,
                 )
                 job.result = _result_dict(result)
                 job.status = "done"

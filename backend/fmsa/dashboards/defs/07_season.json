@@ -1,17 +1,66 @@
 {
-  "id": "season",
-  "order": 7,
-  "title": {"it": "Statistiche stagionali", "en": "Season statistics"},
-  "description": {"it": "Marcatori, assistman e rendimento in campionato per stagione.", "en": "League scorers, assist makers and ratings by season."},
-  "params": ["season", "club"],
-  "widgets": [
-    {"id": "scorers", "type": "bar", "span": 6, "horizontal": true, "x": "player_name", "y": "goals",
-     "title": {"it": "Capocannonieri di tutti i campionati", "en": "Top league scorers (all leagues)"},
-     "sql": "SELECT player_name, sum(goals) AS goals FROM player_season_history WHERE season_year = :season AND kind = 'league' GROUP BY player_uid ORDER BY goals DESC LIMIT 15"},
-    {"id": "assists", "type": "bar", "span": 6, "horizontal": true, "x": "player_name", "y": "assists",
-     "title": {"it": "Assistman di tutti i campionati", "en": "Top league assist makers (all leagues)"},
-     "sql": "SELECT player_name, sum(assists) AS assists FROM player_season_history WHERE season_year = :season AND kind = 'league' GROUP BY player_uid ORDER BY assists DESC LIMIT 15"},
-    {"id": "club", "type": "table", "span": 12, "title": {"it": "I giocatori del club in questa stagione", "en": "The club's players this season"},
-     "sql": "SELECT player_name, kind AS competition_type, starts, substitute_appearances, minutes, goals, assists, round(average_rating, 2) AS average_rating, round(expected_goals, 2) AS expected_goals, player_of_the_match FROM player_season_history WHERE season_year = :season AND club_uid = :club ORDER BY minutes DESC"}
-  ]
+ "id": "season",
+ "order": 7,
+ "title": {
+  "it": "Statistiche stagionali",
+  "en": "Season statistics"
+ },
+ "description": {
+  "it": "Marcatori, assistman e rendimento in campionato per stagione.",
+  "en": "League scorers, assist makers and ratings by season."
+ },
+ "params": [
+  "season",
+  "club"
+ ],
+ "widgets": [
+  {
+   "id": "scorers",
+   "type": "bar",
+   "span": 6,
+   "horizontal": true,
+   "x": "player_name",
+   "y": "goals",
+   "title": {
+    "it": "Capocannonieri di tutti i campionati",
+    "en": "Top league scorers (all leagues)"
+   },
+   "sql": "SELECT player_name, sum(goals) AS goals FROM PlayerSeasonHistory WHERE season_year = :season AND kind = 'league' GROUP BY player_uid ORDER BY goals DESC LIMIT :top"
+  },
+  {
+   "id": "assists",
+   "type": "bar",
+   "span": 6,
+   "horizontal": true,
+   "x": "player_name",
+   "y": "assists",
+   "title": {
+    "it": "Assistman di tutti i campionati",
+    "en": "Top league assist makers (all leagues)"
+   },
+   "sql": "SELECT player_name, sum(assists) AS assists FROM PlayerSeasonHistory WHERE season_year = :season AND kind = 'league' GROUP BY player_uid ORDER BY assists DESC LIMIT :top"
+  },
+  {
+   "id": "club",
+   "type": "table",
+   "span": 12,
+   "title": {
+    "it": "I giocatori del club in questa stagione",
+    "en": "The club's players this season"
+   },
+   "sql": "SELECT player_name, kind AS competition_type, starts, substitute_appearances, minutes, goals, assists, round(average_rating, 2) AS average_rating, round(expected_goals, 2) AS expected_goals, player_of_the_match FROM PlayerSeasonHistory WHERE season_year = :season AND club_uid = :club ORDER BY minutes DESC"
+  }
+ ],
+ "inputs": [
+  {
+   "id": "top",
+   "default": 15,
+   "label": {
+    "it": "Giocatori nelle classifiche",
+    "en": "Players in the rankings"
+   },
+   "min": 5,
+   "max": 100
+  }
+ ]
 }

@@ -144,7 +144,7 @@ def _evaluate(
     if clubs is None:
         checks.append(Check("clubs", "skip", "clubs not readable"))
     else:
-        stored = dict(conn.execute("SELECT uid, unique_id FROM clubs").fetchall())
+        stored = dict(conn.execute("SELECT uid, unique_id FROM Club").fetchall())
         shared = clubs.keys() & stored.keys()
         same = sum(1 for u in shared if clubs[u] == stored[u])
         ratio = _ratio(same, max(len(stored), len(clubs)))
@@ -159,7 +159,7 @@ def _evaluate(
             (d, h, a): (hg, ag)
             for d, h, a, hg, ag in conn.execute(
                 "SELECT date, home_team_id, away_team_id, home_goals, away_goals "
-                "FROM fixtures WHERE played = 1"
+                "FROM Fixture WHERE played = 1"
             )
         }
         overlap: list[tuple[tuple[str, int, int], tuple[int | None, int | None]]] = []

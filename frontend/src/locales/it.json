@@ -133,17 +133,38 @@
     "rows": "{{count}} righe",
     "noCareer": "Apri o crea una carriera per esplorare i dati.",
     "groups": {
-      "data": "Dati attuali",
+      "people": "Persone",
+      "clubs": "Club",
+      "nations": "Nazioni",
+      "competitions": "Competizioni",
+      "season_stats": "Statistiche stagionali",
+      "injuries": "Infortuni",
+      "managed": "Solo club allenato",
+      "save": "Salvataggio",
+      "other": "Altri dati",
       "derived": "Viste di supporto",
       "reference": "Anagrafiche",
-      "history": "Storico (tutte le versioni)"
+      "history": "Storico (versioni precedenti / tutte le versioni)"
     },
     "kinds": {
-      "entity": "entità con storico",
+      "entity": "stato attuale (versioni precedenti in _history)",
       "event": "eventi accumulati",
-      "snapshot": "istantanea per import",
-      "latest": "ultimo import",
-      "child": "dettaglio"
+      "snapshot": "ultima copia (precedenti in _history)",
+      "latest": "solo ultimo import",
+      "child": "record annidato"
+    },
+    "groupHelp": {
+      "history": "Le tabelle con il nome del tipo (Player, Club, …) contengono lo stato ATTUALE: i dati dell'ultimo save importato. Quando importi un save più recente, le righe che cambiano (es. un giocatore che migliora) o che spariscono vengono spostate qui: <Tipo>_history contiene solo le versioni precedenti, <Tipo>_all unisce attuale e precedenti (utile per la progressione nel tempo). _valid_from e _valid_to sono gli import (vedi lo storico import della carriera).",
+      "reference": "Nomi che i save non contengono (competizioni, nazioni, città), dal database anagrafico che mantieni tu.",
+      "derived": "Viste di comodo create dall'app, es. nation_names (nazioni con il nome dell'anagrafica)."
+    },
+    "kindHelp": {
+      "entity": "Stato attuale: una riga per ogni elemento (es. un giocatore) com'è nell'ultimo save importato. Le versioni precedenti sono in <Tipo>_history.",
+      "event": "Eventi accumulati: partite, infortuni, statistiche delle stagioni concluse… Ogni save ne conserva solo una parte; qui si sommano tutti quelli visti negli import, senza doppioni.",
+      "snapshot": "Copia dell'ultimo import (es. le classifiche a quella data). Le copie degli import precedenti sono in <Tipo>_history.",
+      "latest": "Solo i dati dell'ultimo import (le stagioni concluse sono già in PlayerSeasonHistory).",
+      "child": "Record annidato: ogni riga appartiene a un record di un'altra tabella (_parent_table), collegata con _parent_rid = <padre>._rid.",
+      "history": "Versioni precedenti (_history) o attuali + precedenti (_all). _valid_to è l'import in cui la versione è stata sostituita."
     }
   },
   "export": {
@@ -228,7 +249,11 @@
     "params": {
       "club": "Club",
       "competition": "Competizione",
-      "season": "Stagione"
+      "season": "Stagione",
+      "clubNation": "Nazione del club (filtra l'elenco)",
+      "clubLeague": "Lega del club (filtra l'elenco)",
+      "nation": "Nazione del club",
+      "league": "Lega"
     },
     "labels": {
       "ability_current": "Abilità attuale",
@@ -287,7 +312,10 @@
       "home_goals": "Gol casa",
       "away_goals": "Gol trasferta",
       "away_club_name": "Trasferta"
-    }
+    },
+    "all": "Tutte",
+    "resetInputs": "Ripristina i valori predefiniti",
+    "inputsHint": "Modifica i numeri e premi Invio (o clicca fuori dal campo) per aggiornare la dashboard."
   },
   "ai": {
     "keySaved": "Chiave salvata nel Gestore credenziali di Windows.",
@@ -348,5 +376,30 @@
     "upToDate": "Hai già l'ultima versione ({{version}}).",
     "noRelease": "Non ci sono ancora release pubblicate.",
     "offline": "Impossibile contattare GitHub: controlla la connessione."
+  },
+  "importLog": {
+    "title": "Log dell'import #{{id}}",
+    "started": "Inizio",
+    "finished": "Fine",
+    "duration": "Durata",
+    "totals": "Righe lette: {{read}} · righe inserite: {{inserted}}",
+    "file": "File di log",
+    "none": "Questo import non ha un log dettagliato (carriera creata con una versione precedente).",
+    "reader": "Reader fmsave",
+    "table": "Tabella",
+    "start": "Inizio",
+    "end": "Fine",
+    "readMs": "Lettura ms",
+    "writeMs": "Scrittura ms",
+    "rowsRead": "Letti",
+    "rowsInserted": "Inseriti",
+    "rowsUpdated": "Aggiornati",
+    "rowsUnchanged": "Invariati",
+    "rowsClosed": "Chiusi",
+    "status": "Esito",
+    "button": "Log"
+  },
+  "common": {
+    "resizeHint": "Trascina per allargare o stringere l'area (doppio clic: dimensione iniziale)"
   }
 }

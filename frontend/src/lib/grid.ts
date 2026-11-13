@@ -11,8 +11,16 @@ import type { SchemaColumn } from "../api";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-const light = themeQuartz.withParams({ fontFamily: "inherit", headerFontWeight: 600 });
-const dark = light.withPart(colorSchemeDarkBlue);
+// rows alternate white / light grey
+const light = themeQuartz.withParams({
+  fontFamily: "inherit",
+  headerFontWeight: 600,
+  backgroundColor: "#ffffff",
+  oddRowBackgroundColor: "#f1f3f5",
+});
+const dark = light
+  .withPart(colorSchemeDarkBlue)
+  .withParams({ backgroundColor: "#1f2836", oddRowBackgroundColor: "#283242" });
 
 export function useGridTheme() {
   return useComputedColorScheme("light") === "dark" ? dark : light;
