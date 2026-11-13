@@ -8,6 +8,7 @@ import {
   Group,
   Loader,
   Menu,
+  Modal,
   NumberInput,
   Paper,
   SegmentedControl,
@@ -21,10 +22,14 @@ import {
 import {
   IconArrowLeft,
   IconChartBar,
+  IconCopy,
   IconDots,
   IconFileZip,
+  IconPencil,
+  IconPlus,
   IconRestore,
   IconTable,
+  IconTrash,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -37,10 +42,12 @@ import {
   type DashboardParams,
   type DashboardSummary,
   type DashboardWidget,
+  type Localized,
   type ExportFormat,
   type QueryResult,
   type WidgetData,
 } from "../api";
+import DashboardEditor, { blankDashboard } from "../components/DashboardEditor";
 import ResultGrid from "../components/ResultGrid";
 import WidgetChart from "../components/WidgetChart";
 import { compact, full } from "../lib/vizTheme";
@@ -165,8 +172,17 @@ export default function DashboardsPage({ onOpenInQuery }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [editing, setEditing] = useState<{ d: Dashboard; originalId: string | null } | null>(null);
+  const [hidden, setHidden] = useState<{ id: string; title: Localized }[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState<DashboardSummary | null>(null);
+
+  const reloadList = useCallback(() => {
+    dashboardsApi.list().then(setList).catch((e) => setError(String(e)));
+    dashboardsApi.hidden().then(setHidden).catch(() => setHidden([]));
+  }, []);
 
   useEffect(() => {
+    dashboardsApi.hidden().then(setHidden).catch(() => setHidden([]));
     Promise.all([dashboardsApi.list(), dashboardsApi.params()])
       .then(([l, p]) => {
         setList(l);
@@ -247,19 +263,127 @@ export default function DashboardsPage({ onOpenInQuery }: Props) {
     }
   };
 
+  const edit = async (id: string, copy = false) => {
+    try {
+      const d = await dashboardsApi.get(id);
+      if (copy) {
+        const title = Object.fromEntries(
+          Object.entries(d.title).map(([k, v]) => [k, `${v} (${t("dashEdit.copySuffix")})`]),
+        );
+        setEditing({ d: { ...d, id: `${d.id}_copy`, title, source: "user", builtin: false }, originalId: null });
+      } else {
+        setEditing({ d, originalId: d.id });
+      }
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+  const remove = async (d: DashboardSummary) => {
+    setConfirmDelete(null);
+    try {
+      await dashboardsApi.remove(d.id);
+      if (current?.id === d.id) setCurrent(null);
+      reloadList();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+  const restore = async (id: string) => {
+    try {
+      const d = await dashboardsApi.restore(id);
+      reloadList();
+      if (current?.id === id) {
+        setCurrent(d);
+        void load(d, { ...values, ...inputDefaults(d) });
+      }
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+  const saved = (d: Dashboard) => {
+    setEditing(null);
+    reloadList();
+    void open(d.id);
+  };
+
   if (error) return <Alert color="red" withCloseButton onClose={() => setError(null)}>{error}</Alert>;
   if (!list || !params) return <Loader />;
+
+  if (editing) {
+    return (
+      <DashboardEditor initial={editing.d} originalId={editing.originalId}
+        values={{ ...fullValues, ...inputDefaults(editing.d) }}
+        onSaved={saved} onCancel={() => setEditing(null)} />
+    );
+  }
+
+  const deleteModal = (
+    <Modal opened={confirmDelete !== null} onClose={() => setConfirmDelete(null)}
+      title={t("dashEdit.deleteTitle")}>
+      <Stack>
+        <Text>
+          {confirmDelete?.source === "user" && !confirmDelete.builtin
+            ? t("dashEdit.deleteUser", { name: localized(confirmDelete.title, lang) })
+            : t("dashEdit.deleteBuiltin", { name: localized(confirmDelete?.title, lang) })}
+        </Text>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={() => setConfirmDelete(null)}>{t("careers.cancel")}</Button>
+          <Button color="red" onClick={() => confirmDelete && remove(confirmDelete)}>
+            {t("dashEdit.delete")}
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+
+  const cardMenu = (d: DashboardSummary) => (
+    <Menu position="bottom-end" withinPortal>
+      <Menu.Target>
+        <ActionIcon variant="subtle" color="gray" onClick={(e) => e.stopPropagation()}
+          aria-label={t("dash.more")}>
+          <IconDots size={16} />
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown onClick={(e) => e.stopPropagation()}>
+        <Menu.Item leftSection={<IconPencil size={14} />} onClick={() => edit(d.id)}>
+          {t("dashEdit.edit")}
+        </Menu.Item>
+        <Menu.Item leftSection={<IconCopy size={14} />} onClick={() => edit(d.id, true)}>
+          {t("dashEdit.duplicate")}
+        </Menu.Item>
+        {d.builtin && d.source === "user" && (
+          <Menu.Item leftSection={<IconRestore size={14} />} onClick={() => restore(d.id)}>
+            {t("dashEdit.restore")}
+          </Menu.Item>
+        )}
+        <Menu.Item color="red" leftSection={<IconTrash size={14} />} onClick={() => setConfirmDelete(d)}>
+          {t("dashEdit.delete")}
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  );
 
   if (!current) {
     return (
       <Stack>
-        <Title order={2}>{t("nav.dashboards")}</Title>
+        <Group justify="space-between">
+          <Title order={2}>{t("nav.dashboards")}</Title>
+          <Button leftSection={<IconPlus size={16} />}
+            onClick={() => setEditing({ d: blankDashboard(), originalId: null })}>
+            {t("dashEdit.new")}
+          </Button>
+        </Group>
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
           {list.map((d) => (
             <Card key={d.id} withBorder padding="md" style={{ cursor: "pointer" }} onClick={() => open(d.id)}>
-              <Group justify="space-between" mb={4}>
+              <Group justify="space-between" mb={4} wrap="nowrap">
                 <Text fw={600}>{localized(d.title, lang)}</Text>
-                {d.source === "user" && <Badge variant="light">{t("dash.custom")}</Badge>}
+                <Group gap={4} wrap="nowrap">
+                  {d.source === "user" && (
+                    <Badge variant="light">{d.builtin ? t("dashEdit.modified") : t("dash.custom")}</Badge>
+                  )}
+                  {cardMenu(d)}
+                </Group>
               </Group>
               <Text size="sm" c="dimmed">{localized(d.description, lang)}</Text>
               <Group gap={4} mt="sm">
@@ -268,7 +392,21 @@ export default function DashboardsPage({ onOpenInQuery }: Props) {
             </Card>
           ))}
         </SimpleGrid>
+        {hidden.length > 0 && (
+          <Paper withBorder p="sm">
+            <Text fw={600} size="sm" mb={4}>{t("dashEdit.hiddenTitle")}</Text>
+            <Group gap="xs">
+              {hidden.map((h) => (
+                <Button key={h.id} size="xs" variant="light" leftSection={<IconRestore size={14} />}
+                  onClick={() => restore(h.id)}>
+                  {localized(h.title, lang)}
+                </Button>
+              ))}
+            </Group>
+          </Paper>
+        )}
         <Text size="xs" c="dimmed">{t("dash.customHint")}</Text>
+        {deleteModal}
       </Stack>
     );
   }
@@ -285,6 +423,10 @@ export default function DashboardsPage({ onOpenInQuery }: Props) {
           <Title order={2}>{localized(current.title, lang)}</Title>
           {loading && <Loader size="xs" />}
         </Group>
+        <Group gap="xs">
+        <Button variant="default" leftSection={<IconPencil size={16} />} onClick={() => edit(current.id)}>
+          {t("dashEdit.edit")}
+        </Button>
         <Menu position="bottom-end" withinPortal>
           <Menu.Target>
             <Button variant="default" leftSection={<IconFileZip size={16} />}>{t("dash.exportAll")}</Button>
@@ -295,6 +437,7 @@ export default function DashboardsPage({ onOpenInQuery }: Props) {
             <Menu.Item onClick={() => zip("json")}>{t("export.json")}</Menu.Item>
           </Menu.Dropdown>
         </Menu>
+        </Group>
       </Group>
       <Text size="sm" c="dimmed">{localized(current.description, lang)}</Text>
 

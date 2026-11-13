@@ -22,7 +22,7 @@
     "it": "Giocatori",
     "en": "Players"
    },
-   "sql": "SELECT count(*) AS value FROM Player WHERE club_uid = :club"
+   "sql": "SELECT count(*) AS value FROM players WHERE club_uid = :club"
   },
   {
    "id": "age",
@@ -33,7 +33,7 @@
     "it": "Età media",
     "en": "Average age"
    },
-   "sql": "SELECT round(avg(age), 1) AS value FROM Player WHERE club_uid = :club"
+   "sql": "SELECT round(avg(age), 1) AS value FROM players WHERE club_uid = :club"
   },
   {
    "id": "ca",
@@ -44,7 +44,7 @@
     "it": "Abilità attuale media",
     "en": "Average current ability"
    },
-   "sql": "SELECT round(avg(ability_current), 1) AS value FROM Player WHERE club_uid = :club"
+   "sql": "SELECT round(avg(ability_current), 1) AS value FROM players WHERE club_uid = :club"
   },
   {
    "id": "value",
@@ -55,7 +55,7 @@
     "it": "Valore della rosa",
     "en": "Squad value"
    },
-   "sql": "SELECT sum(transfer_value) AS value FROM Player WHERE club_uid = :club"
+   "sql": "SELECT sum(transfer_value) AS value FROM players WHERE club_uid = :club"
   },
   {
    "id": "ca_bar",
@@ -68,7 +68,7 @@
     "it": "Abilità attuale (i migliori {top})",
     "en": "Current ability (best {top})"
    },
-   "sql": "SELECT name, ability_current FROM Player WHERE club_uid = :club ORDER BY ability_current DESC LIMIT :top"
+   "sql": "SELECT name, ability_current FROM players WHERE club_uid = :club ORDER BY ability_current DESC LIMIT :top"
   },
   {
    "id": "age_ca",
@@ -81,7 +81,7 @@
     "it": "Età e abilità attuale",
     "en": "Age and current ability"
    },
-   "sql": "SELECT name, age, ability_current FROM Player WHERE club_uid = :club"
+   "sql": "SELECT name, age, ability_current FROM players WHERE club_uid = :club"
   },
   {
    "id": "list",
@@ -91,7 +91,7 @@
     "it": "Rosa",
     "en": "Squad"
    },
-   "sql": "SELECT p.name, p.age, p.natural_positions AS positions, p.ability_current, p.ability_potential, p.transfer_value, c.wage, c.\"end\" AS contract_end, c.squad_status FROM Player p LEFT JOIN Contract c ON c.player_uid = p.uid WHERE p.club_uid = :club ORDER BY p.ability_current DESC"
+   "sql": "SELECT p.name, p.age, p.natural_positions AS positions, p.ability_current, p.ability_potential, p.transfer_value, c.wage, c.\"end\" AS contract_end, c.squad_status FROM players p LEFT JOIN contracts c ON c.player_uid = p.uid WHERE p.club_uid = :club ORDER BY p.ability_current DESC"
   }
  ],
  "inputs": [

@@ -23,11 +23,10 @@ from pathlib import Path
 from typing import Any
 
 import fmsave
-from fmsave.readers.fm27_span import Fm27Span
 
 from fmsa import __version__
 from fmsa.db import SCHEMA_VERSION, open_writer, q
-from fmsa.ingest.readers import ALL_READERS, READER_GROUPS, ReaderSpec
+from fmsa.ingest.readers import ALL_READERS, READER_GROUPS, READER_NAMES, ReaderSpec
 from fmsa.ingest.store import MergeStats, TableWriter, history_table
 from fmsa.reference import ReferenceChoice, choose_version, competition_names, copy_into_career
 
@@ -90,7 +89,7 @@ CREATE TABLE IF NOT EXISTS _import_readers (
 );
 CREATE TABLE IF NOT EXISTS _tables (
     table_name TEXT PRIMARY KEY, base_table TEXT, reader TEXT, kind TEXT,
-    parent_table TEXT, record_type TEXT, key_columns TEXT
+    parent_table TEXT, record_type TEXT, key_columns TEXT, join_columns TEXT
 );
 CREATE TABLE IF NOT EXISTS _columns (
     table_name TEXT, column_name TEXT, sql_type TEXT, source_path TEXT, field_status TEXT,
@@ -115,22 +114,17 @@ RECORD_TYPES: dict[str, type] = {
     "injuries": fmsave.InjuryRecord, "training": fmsave.TeamTraining,
     "mentoring": fmsave.MentoringGroup, "tactics": fmsave.Tactic,
     "set_pieces": fmsave.SetPieceRoutine, "selections": fmsave.Selection,
-    "squad_planner": fmsave.SquadPlannerSlot, "save_info": fmsave.SaveInfo,
-    "experimental_span": Fm27Span,
+    "squad_planner": fmsave.SquadPlannerSlot,
 }  # fmt: skip
-
-# Types read by a reader of their own are not stored again where they appear as a group
-# (Player.contract: its columns stay in Player, the rows are in Contract).
-SKIP_GROUPS: frozenset[type] = frozenset(RECORD_TYPES.values())
 
 
 def writer_for(conn: sqlite3.Connection, spec: ReaderSpec) -> TableWriter:
-    return TableWriter(conn, spec, RECORD_TYPES[spec.name], SKIP_GROUPS)
+    return TableWriter(conn, spec, RECORD_TYPES[spec.name])
 
 
 def table_of(reader: str) -> str:
-    """The table a reader's records are stored in (named like the fmsave record type)."""
-    return RECORD_TYPES[reader].__name__
+    """The table a reader's records are stored in (named like the reader)."""
+    return reader
 
 
 @contextlib.contextmanager
@@ -228,25 +222,19 @@ def _write_catalog(conn: sqlite3.Connection, writer: TableWriter) -> None:
     spec = writer.spec
     for table, layout in writer.layouts().items():
         top = layout is writer.layout
-        parents = set(writer.parents.get(table, set()))
-        row = conn.execute("SELECT parent_table FROM _tables WHERE table_name = ?", (table,))
-        previous = row.fetchone()
-        if previous and previous[0]:
-            parents |= set(previous[0].split(","))  # e.g. Ability: in Player and in Staff
-        readers = {spec.name}
-        row = conn.execute("SELECT reader FROM _tables WHERE table_name = ?", (table,)).fetchone()
-        if row and row[0] and not top:
-            readers |= set(row[0].split(","))
+        parent = layout.parent
+        join = ["_import_id", *parent.keys] if parent else []
         conn.execute(
-            "INSERT OR REPLACE INTO _tables VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO _tables VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 table,
                 history_table(table) if writer.history else None,
-                ",".join(sorted(readers)),
+                spec.name,
                 spec.kind.value if top else "child",
-                ",".join(sorted(parents)) or None,
+                parent.table if parent else None,
                 layout.record_type.__name__,
-                json.dumps(list(spec.key)) if top else None,
+                json.dumps(list(spec.key) if top else layout.keys),
+                json.dumps(join) if join else None,
             ),
         )
         conn.execute("DELETE FROM _columns WHERE table_name = ?", (table,))
@@ -274,12 +262,21 @@ def import_save(
     `log_dir` receives a detailed text log of the import (also stored in `_import_log`).
 
     `reference_db` supplies the names saves do not store (see fmsa.reference).
-    `readers` limits the import to some readers (used by tests).
+    `readers` limits the import to some readers (partial import). The others are recorded in
+    `_import_readers` as "skipped": their tables exist (possibly empty) and keep what earlier
+    imports stored.
     """
     started = time.perf_counter()
+    if readers is not None:
+        unknown = sorted(set(readers) - set(READER_NAMES))
+        if unknown:
+            raise ValueError(f"unknown readers: {', '.join(unknown)}")
+        if not readers:
+            raise ValueError("no readers selected")
     groups = [tuple(r for r in g if readers is None or r.name in readers) for g in READER_GROUPS]
     groups = [g for g in groups if g]
     total = sum(len(g) for g in groups)
+    skipped = tuple(r for r in ALL_READERS if readers is not None and r.name not in readers)
 
     with tempfile.TemporaryDirectory(prefix="fmsa_import_") as tmp:
         local = Path(tmp) / save_path.name
@@ -298,7 +295,13 @@ def import_save(
             try:
                 ilog = _open_log(conn, db_path, log_dir)
                 result = _run_import(
-                    conn, local, save_path, sha, info, groups, total, names, progress, ilog
+                    conn, local, save_path, sha, info, groups, total, names, progress, ilog,
+                    skipped,
+                )
+                selected = [r.name for g in groups for r in g]
+                conn.execute(
+                    "INSERT OR REPLACE INTO _meta VALUES ('import_readers', ?)",
+                    (json.dumps(selected),),
                 )
                 if career_name:
                     conn.execute(
@@ -338,6 +341,7 @@ def _run_import(
     competition_names: Mapping[int, str] | None,
     progress: Progress | None,
     ilog: ImportLog,
+    skipped: tuple[ReaderSpec, ...] = (),
 ) -> ImportResult:
     meta = career_info(conn)
     if not meta:
@@ -399,6 +403,17 @@ def _run_import(
                 done += 1
     if progress:
         progress("", done, total)
+    for spec in skipped:
+        # not selected: tables exist (queries keep working) and keep earlier imports' rows
+        writer = writer_for(conn, spec)
+        writer.ensure_tables()
+        _write_catalog(conn, writer)
+        conn.execute(
+            f"INSERT INTO _import_readers VALUES ({', '.join('?' * 10)})",
+            (import_id, spec.name, "skipped", 0, 0, 0, 0, 0, 0.0, "not selected for this import"),
+        )
+    if skipped:
+        ilog.line(f"SKIPPED (not selected): {', '.join(s.name for s in skipped)}")
 
     total_read = sum(r.stats.rows for r in results)
     ilog.line(
@@ -414,9 +429,9 @@ def _run_import(
     ilog.line("TABLES: " + ", ".join(f"{t}={n}" for t, n in table_counts(conn).items()))
 
     manager = None
-    if _has_table(conn, "Staff"):
+    if _has_table(conn, "staff"):
         row = conn.execute(
-            "SELECT name FROM Staff WHERE is_human_manager = 1 ORDER BY _rid LIMIT 1"
+            "SELECT name FROM staff WHERE is_human_manager = 1 ORDER BY _rid LIMIT 1"
         ).fetchone()
         manager = row[0] if row else None
     conn.execute(
@@ -440,11 +455,11 @@ def _apply_reference(conn: sqlite3.Connection, reference_db: Path, choice: Refer
         "INSERT OR REPLACE INTO _meta VALUES (?, ?)",
         [("reference_version", choice.version), ("reference_exact", str(int(choice.exact)))],
     )
-    if "nations" in choice.tables and _has_table(conn, "Nation"):
+    if "nations" in choice.tables and _has_table(conn, "nations"):
         conn.execute("DROP VIEW IF EXISTS nation_names")
         conn.execute(
             "CREATE VIEW nation_names AS SELECT n.nation_id, n.database_id, r.name, "
-            "r.short_name, r.code FROM Nation n "
+            "r.short_name, r.code FROM nations n "
             "LEFT JOIN ref_nations r ON r.database_id = n.database_id"
         )
     log.info("Reference data %s (exact=%s): %d rows", choice.version, choice.exact, rows)
@@ -537,7 +552,7 @@ def _import_reader(
         top = table == writer.layout.table
         read = writer.read_counts[table]
         inserted = writer.insert_counts[table]
-        parent = ",".join(sorted(writer.parents.get(table, ()))) or None
+        parent = writer.parents.get(table)
         conn.execute(
             f"INSERT INTO _import_log VALUES ({', '.join('?' * 19)})",
             (import_id, seq, spec.name, _call_name(spec), table, parent,

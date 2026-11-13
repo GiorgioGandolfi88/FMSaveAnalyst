@@ -101,22 +101,21 @@ export default function QueryPage({ schema, initialSql, onInitialSqlUsed }: Prop
 
   const update = (fn: (m: QueryModel) => QueryModel) => setModel((m) => fn(m));
 
-  const suggestJoin = (m: QueryModel, alias: string, table: string): QBJoin | null => {
+  const suggestJoin = (m: QueryModel, alias: string, table: string): QBJoin[] | null => {
     // prefer the most direct relation: "club_uid" rather than "loan_parent_club_uid"
-    let best: QBJoin | null = null;
+    let best: QBJoin[] | null = null;
     let bestLen = Infinity;
     for (const other of m.tables) {
       for (const r of schema.relations) {
-        let candidate: QBJoin | null = null;
-        let length = Infinity;
+        let candidate: QBJoin[] | null = null;
+        const length = r.from_column.length;
+        const pairs: [string, string][] = [[r.from_column, r.to_column], ...(r.also ?? [])];
         if (r.from_table === table && r.to_table === other.table) {
-          candidate = { id: uid(), from: other.id, to: alias, fromColumn: r.to_column,
-                        toColumn: r.from_column, type: "LEFT" };  // prettier-ignore
-          length = r.from_column.length;
+          candidate = pairs.map(([f, t]) => ({ id: uid(), from: other.id, to: alias,
+            fromColumn: t, toColumn: f, type: "LEFT" as const }));  // prettier-ignore
         } else if (r.from_table === other.table && r.to_table === table) {
-          candidate = { id: uid(), from: other.id, to: alias, fromColumn: r.from_column,
-                        toColumn: r.to_column, type: "LEFT" };  // prettier-ignore
-          length = r.from_column.length;
+          candidate = pairs.map(([f, t]) => ({ id: uid(), from: other.id, to: alias,
+            fromColumn: f, toColumn: t, type: "LEFT" as const }));  // prettier-ignore
         }
         if (candidate && length < bestLen) {
           best = candidate;
@@ -139,8 +138,8 @@ export default function QueryPage({ schema, initialSql, onInitialSqlUsed }: Prop
         ...m,
         tables: [...m.tables, { id: alias, table, x: 40 + n * 300, y: 30 + (n % 2) * 60 }],
       };
-      const join = n ? suggestJoin(m, alias, table) : null;
-      return join ? { ...next, joins: [...next.joins, join] } : next;
+      const joins = n ? suggestJoin(m, alias, table) : null;
+      return joins ? { ...next, joins: [...next.joins, ...joins] } : next;
     });
   };
 
@@ -226,13 +225,13 @@ export default function QueryPage({ schema, initialSql, onInitialSqlUsed }: Prop
     if (!from || !to) return;
     const others = { ...model, tables: [from] };
     const suggested = suggestJoin(others, to.id, to.table);
-    const join: QBJoin = suggested ?? {
+    const joins: QBJoin[] = suggested ?? [{
       id: uid(), from: from.id, to: to.id, type: "LEFT",
       fromColumn: objects.get(from.table)?.columns[0]?.name ?? "",
       toColumn: objects.get(to.table)?.columns[0]?.name ?? "",
-    };  // prettier-ignore
-    update((m) => ({ ...m, joins: [...m.joins, join] }));
-    if (!suggested) setEditingJoin(join);
+    }];  // prettier-ignore
+    update((m) => ({ ...m, joins: [...m.joins, ...joins] }));
+    if (!suggested) setEditingJoin(joins[0]);
   };
 
   // ------------------------------------------------------------ run / save

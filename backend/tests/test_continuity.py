@@ -34,13 +34,13 @@ def career(tmp_path: Path) -> sqlite3.Connection:
         "VALUES ('s1.fm', 'aaa', 'FM26', '26.3.2+1', '2026-06-15', ?, 'ok')",
         (json.dumps([CONFIG, "26.3.2+1", "Serie B", "Mario Rossi"]),),
     )
-    conn.execute("CREATE TABLE Club (uid, unique_id)")
-    conn.executemany("INSERT INTO Club VALUES (?, ?)", [(i, 1000 + i) for i in range(100)])
+    conn.execute("CREATE TABLE clubs (uid, unique_id)")
+    conn.executemany("INSERT INTO clubs VALUES (?, ?)", [(i, 1000 + i) for i in range(100)])
     conn.execute(
-        "CREATE TABLE Fixture (date, home_team_id, away_team_id, home_goals, away_goals, played)"
+        "CREATE TABLE fixtures (date, home_team_id, away_team_id, home_goals, away_goals, played)"
     )
     conn.executemany(
-        "INSERT INTO Fixture VALUES (?, ?, ?, ?, ?, 1)",
+        "INSERT INTO fixtures VALUES (?, ?, ?, ?, ?, 1)",
         [(f"2026-03-{d:02d}", d, d + 1, 1, 0) for d in range(1, 21)],
     )
     return conn

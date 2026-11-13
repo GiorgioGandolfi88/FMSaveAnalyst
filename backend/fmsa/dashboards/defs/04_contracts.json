@@ -22,7 +22,7 @@
     "it": "Contratti in scadenza entro {months} mesi",
     "en": "Contracts expiring within {months} months"
    },
-   "sql": "SELECT count(*) AS value FROM Contract WHERE club_uid = :club AND \"end\" <= date(:today, '+' || :months || ' months')"
+   "sql": "SELECT count(*) AS value FROM contracts WHERE club_uid = :club AND \"end\" <= date(:today, '+' || :months || ' months')"
   },
   {
    "id": "wages",
@@ -33,7 +33,7 @@
     "it": "Monte ingaggi",
     "en": "Total wages"
    },
-   "sql": "SELECT sum(wage) AS value FROM Contract WHERE club_uid = :club"
+   "sql": "SELECT sum(wage) AS value FROM contracts WHERE club_uid = :club"
   },
   {
    "id": "top_wage",
@@ -44,7 +44,7 @@
     "it": "Ingaggio più alto",
     "en": "Highest wage"
    },
-   "sql": "SELECT max(wage) AS value FROM Contract WHERE club_uid = :club"
+   "sql": "SELECT max(wage) AS value FROM contracts WHERE club_uid = :club"
   },
   {
    "id": "wage_bar",
@@ -57,7 +57,7 @@
     "it": "Ingaggi (i 20 più alti)",
     "en": "Wages (top 20)"
    },
-   "sql": "SELECT player_name, wage FROM Contract WHERE club_uid = :club AND wage IS NOT NULL ORDER BY wage DESC LIMIT 20"
+   "sql": "SELECT player_name, wage FROM contracts WHERE club_uid = :club AND wage IS NOT NULL ORDER BY wage DESC LIMIT 20"
   },
   {
    "id": "by_year",
@@ -69,7 +69,7 @@
     "it": "Contratti per anno di scadenza",
     "en": "Contracts by expiry year"
    },
-   "sql": "SELECT substr(\"end\", 1, 4) AS year, count(*) AS contracts FROM Contract WHERE club_uid = :club AND \"end\" IS NOT NULL GROUP BY year ORDER BY year"
+   "sql": "SELECT substr(\"end\", 1, 4) AS year, count(*) AS contracts FROM contracts WHERE club_uid = :club AND \"end\" IS NOT NULL GROUP BY year ORDER BY year"
   },
   {
    "id": "list",
@@ -79,7 +79,7 @@
     "it": "Contratti in scadenza entro {months_list} mesi",
     "en": "Contracts expiring within {months_list} months"
    },
-   "sql": "SELECT c.player_name, p.age, p.ability_current, c.wage, c.\"end\" AS contract_end, c.squad_status, p.transfer_value FROM Contract c LEFT JOIN Player p ON p.uid = c.player_uid WHERE c.club_uid = :club AND c.\"end\" <= date(:today, '+' || :months_list || ' months') ORDER BY c.\"end\""
+   "sql": "SELECT c.player_name, p.age, p.ability_current, c.wage, c.\"end\" AS contract_end, c.squad_status, p.transfer_value FROM contracts c LEFT JOIN players p ON p.uid = c.player_uid WHERE c.club_uid = :club AND c.\"end\" <= date(:today, '+' || :months_list || ' months') ORDER BY c.\"end\""
   }
  ],
  "inputs": [

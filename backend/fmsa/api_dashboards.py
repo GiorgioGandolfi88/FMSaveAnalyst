@@ -10,13 +10,33 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from fmsa.config import SettingsStore
-from fmsa.dashboards import export_dashboard, load_dashboards, param_options, run_dashboard
+from fmsa.dashboards import (
+    DashboardError,
+    delete_dashboard,
+    export_dashboard,
+    hidden_builtins,
+    load_dashboards,
+    param_options,
+    restore_dashboard,
+    run_dashboard,
+    save_dashboard,
+    validate_dashboard,
+)
 from fmsa.query.export import ExportFormat
 from fmsa.query.session import QueryError, open_career
 
 
 class DashboardRequest(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
+
+
+class DashboardSave(BaseModel):
+    dashboard: dict[str, Any]
+    old_id: str | None = None
+
+
+class DashboardPreview(DashboardRequest):
+    dashboard: dict[str, Any]
 
 
 class DashboardExport(DashboardRequest):
@@ -50,7 +70,10 @@ def create_router(store: SettingsStore, data_dir: Path) -> APIRouter:
     @router.get("")
     def list_dashboards() -> list[dict[str, Any]]:
         return [
-            {k: d.get(k) for k in ("id", "title", "description", "params", "source", "order")}
+            {
+                k: d.get(k)
+                for k in ("id", "title", "description", "params", "source", "order", "builtin")
+            }
             | {"widgets": len(d["widgets"])}
             for d in load_dashboards(user_dir).values()
         ]
@@ -59,6 +82,48 @@ def create_router(store: SettingsStore, data_dir: Path) -> APIRouter:
     def params() -> dict[str, Any]:
         with open_career(career(), store.get().masking) as session:
             return param_options(session)
+
+    @router.get("/hidden")
+    def hidden() -> list[dict[str, Any]]:
+        """Built-in dashboards the user deleted (they can be restored)."""
+        builtin = load_dashboards(None)
+        return [
+            {"id": k, "title": builtin[k]["title"]}
+            for k in sorted(hidden_builtins(user_dir))
+            if k in builtin and k not in load_dashboards(user_dir)
+        ]
+
+    @router.post("/preview")
+    def preview(body: DashboardPreview) -> dict[str, Any]:
+        try:
+            d = validate_dashboard(body.dashboard)
+        except DashboardError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        with open_career(career(), store.get().masking) as session:
+            return {"widgets": run_dashboard(session, d, body.params, today(session))}
+
+    @router.put("/{dashboard_id}")
+    def save(dashboard_id: str, body: DashboardSave) -> dict[str, Any]:
+        if body.dashboard.get("id") != dashboard_id:
+            raise HTTPException(422, "the dashboard id does not match the URL")
+        try:
+            return save_dashboard(user_dir, body.dashboard, body.old_id)
+        except DashboardError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @router.delete("/{dashboard_id}")
+    def delete(dashboard_id: str) -> dict[str, Any]:
+        dashboard(dashboard_id)
+        delete_dashboard(user_dir, dashboard_id)
+        return {"deleted": dashboard_id}
+
+    @router.post("/{dashboard_id}/restore")
+    def restore(dashboard_id: str) -> dict[str, Any]:
+        try:
+            restore_dashboard(user_dir, dashboard_id)
+        except DashboardError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return dashboard(dashboard_id)
 
     @router.get("/{dashboard_id}")
     def get_dashboard(dashboard_id: str) -> dict[str, Any]:

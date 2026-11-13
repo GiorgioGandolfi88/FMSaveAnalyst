@@ -20,6 +20,7 @@ import {
   IconSettings,
   IconSitemap,
   IconSun,
+  IconUsers,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,12 +33,14 @@ import UpdateBanner from "./components/UpdateBanner";
 import CareersPage from "./pages/CareersPage";
 import DashboardsPage from "./pages/DashboardsPage";
 import ExplorePage from "./pages/ExplorePage";
+import PlayersPage from "./pages/PlayersPage";
 import QueryPage from "./pages/QueryPage";
 
-type PageKey = "start" | "explore" | "query" | "dashboards" | "ai" | "settings";
+type PageKey = "start" | "players" | "explore" | "query" | "dashboards" | "ai" | "settings";
 
 const NAV: { key: PageKey; icon: ComponentType<{ size?: number }> }[] = [
   { key: "start", icon: IconHome },
+  { key: "players", icon: IconUsers },
   { key: "explore", icon: IconDatabaseSearch },
   { key: "query", icon: IconSitemap },
   { key: "dashboards", icon: IconChartBar },
@@ -117,6 +120,12 @@ export default function App() {
   } else if (page === "ai") {
     content = career ? (
       <AiPage key={`${career}|${schemaVersion}`} onOpenSettings={() => setPage("settings")} />
+    ) : (
+      <Alert color="gray">{t("explore.noCareer")}</Alert>
+    );
+  } else if (page === "players") {
+    content = career ? (
+      <PlayersPage key={`${career}|${maskingKey}|${schemaVersion}`} />
     ) : (
       <Alert color="gray">{t("explore.noCareer")}</Alert>
     );

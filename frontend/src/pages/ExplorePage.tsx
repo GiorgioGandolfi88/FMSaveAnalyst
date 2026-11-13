@@ -52,7 +52,7 @@ export default function ExplorePage({ schema, onOpenInQuery }: Props) {
   const theme = useGridTheme();
   const [search, setSearch] = useState("");
   const [table, setTable] = useState<SchemaObject | null>(
-    schema.objects.find((o) => o.name === "Player") ?? schema.objects[0] ?? null,
+    schema.objects.find((o) => o.name === "players") ?? schema.objects[0] ?? null,
   );
   const [hidden, setHidden] = useState<Record<string, Set<string>>>({});
   const [total, setTotal] = useState<number | null>(null);

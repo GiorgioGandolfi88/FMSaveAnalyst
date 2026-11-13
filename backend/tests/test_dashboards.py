@@ -73,21 +73,21 @@ def career(tmp_path: Path) -> Path:
         INSERT INTO _imports VALUES (1, '2030-06-15', 'ok');
         CREATE TABLE _columns (table_name, column_name, sql_type, source_path, field_status,
                                position);
-        INSERT INTO _columns VALUES ('Player', 'ability_potential', 'INTEGER',
-                                    'Player.ability.potential', '', 0);
-        CREATE TABLE Club (uid, name, reputation, gender, nation_id);
-        INSERT INTO Club VALUES (1, 'Women FC', 9000, 'women', 5), (2, 'Men FC', 5000, 'men', 5);
-        CREATE TABLE Player (uid, name, age, club_uid, ability_current, ability_potential,
+        INSERT INTO _columns VALUES ('players', 'ability_potential', 'INTEGER',
+                                    'players.ability.potential', '', 0);
+        CREATE TABLE clubs (uid, name, reputation, gender, nation_id);
+        INSERT INTO clubs VALUES (1, 'Women FC', 9000, 'women', 5), (2, 'Men FC', 5000, 'men', 5);
+        CREATE TABLE players (uid, name, age, club_uid, ability_current, ability_potential,
                               transfer_value, natural_positions, birth_date);
-        INSERT INTO Player VALUES (10, 'A', 20, 2, 120, 170, 1000, '["ST"]', '2010-01-01'),
+        INSERT INTO players VALUES (10, 'A', 20, 2, 120, 170, 1000, '["ST"]', '2010-01-01'),
                                    (11, 'B', 30, 2, 140, 150, 3000, '["GK"]', '1999-01-01');
-        CREATE TABLE Contract (player_uid, club_uid, wage, "end", squad_status,
+        CREATE TABLE contracts (player_uid, club_uid, wage, "end", squad_status,
                                 player_name);
-        INSERT INTO Contract VALUES (10, 2, 500, '2031-01-01', 'KEY', 'A');
-        CREATE TABLE PlayerSeasonHistory (season_year, kind, player_uid);
-        INSERT INTO PlayerSeasonHistory VALUES (2030, 'league', 10);
+        INSERT INTO contracts VALUES (10, 2, 500, '2031-01-01', 'KEY', 'A');
+        CREATE TABLE player_season_history (season_year, kind, player_uid);
+        INSERT INTO player_season_history VALUES (2030, 'league', 10);
         WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 20)
-        INSERT INTO PlayerSeasonHistory SELECT 2029, 'league', i FROM n;
+        INSERT INTO player_season_history SELECT 2029, 'league', i FROM n;
         """
     )
     conn.commit()

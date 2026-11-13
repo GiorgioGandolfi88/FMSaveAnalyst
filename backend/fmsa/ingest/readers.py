@@ -51,12 +51,6 @@ E, V, S, L = Kind.ENTITY, Kind.EVENT, Kind.SNAPSHOT, Kind.LATEST
 
 READER_GROUPS: tuple[tuple[ReaderSpec, ...], ...] = (
     (
-        # save metadata (fmsave Save.info): build, game date, summary strings, sections
-        ReaderSpec("save_info", S, source="property", attr="info"),
-        # FM27 only: partially decoded raw fixture and rules records (fmsave experimental)
-        ReaderSpec("experimental_span", S, source="method"),
-    ),
-    (
         # contract and suspensions are also readers of their own, but are kept here too
         ReaderSpec("players", E, ("uid", "birth_date")),
         ReaderSpec("contracts", E, ("player_uid",)),
@@ -115,34 +109,48 @@ READER_GROUPS: tuple[tuple[ReaderSpec, ...], ...] = (
 )
 
 ALL_READERS: tuple[ReaderSpec, ...] = tuple(r for g in READER_GROUPS for r in g)
+READER_NAMES: tuple[str, ...] = tuple(r.name for r in ALL_READERS)
 
-# Record type -> category, as in fmsave's documentation (used to group tables in the UI).
+# What the user picks from when importing only part of a save (UI groups -> readers).
+IMPORT_GROUPS: dict[str, tuple[str, ...]] = {
+    "people": ("players", "contracts", "suspensions", "staff", "staff_lists"),
+    "clubs": ("clubs", "managed_clubs", "finances", "sponsorships", "facilities", "stadiums",
+              "affiliates", "job_vacancies"),
+    "nations": ("nations",),
+    "competitions": ("competitions", "stages", "fixtures", "officials", "league_tables",
+                     "competition_rules", "transfer_windows", "player_match_stats",
+                     "team_match_stats"),
+    "season_stats": ("player_season_stats", "player_season_history"),
+    "injuries": ("injury_types", "injuries"),
+    "managed": ("training", "mentoring", "tactics", "set_pieces", "selections", "squad_planner"),
+}  # fmt: skip
+
+# Table -> category, as in fmsave's documentation (used to group tables in the UI).
 CATEGORIES: dict[str, str] = {
     **dict.fromkeys(
-        ("Player", "Attributes", "Ability", "Reputation", "Positions", "Personality", "Contract",
-         "Clause", "ContractChainEntry", "PlayerSuspension", "Suspension", "Staff",
-         "StaffAttributes", "StaffPreferences", "StaffList"),
+        ("players", "players_suspensions", "contracts", "contracts_clauses", "contracts_chain",
+         "suspensions", "staff", "staff_lists"),
         "people",
     ),
     **dict.fromkeys(
-        ("Club", "Team", "ClubFacilities", "Stadium", "FinanceMonth", "Sponsorship",
-         "AffiliateGroup", "JobVacancy"),
+        ("clubs", "clubs_teams", "facilities", "stadiums", "finances", "sponsorships",
+         "affiliates", "job_vacancies"),
         "clubs",
     ),
-    "Nation": "nations",
+    "nations": "nations",
     **dict.fromkeys(
-        ("Stage", "Competition", "Fixture", "Official", "LeagueTable", "LeagueTableSplit",
-         "LeagueTableMatch", "LeagueTableRow", "TransferWindow", "CompetitionRules", "RulesRound",
-         "PlayerMatchStats", "TeamMatchStats"),
+        ("stages", "competitions", "fixtures", "officials", "league_tables", "league_tables_rows",
+         "league_tables_rows_matches", "transfer_windows", "competition_rules",
+         "competition_rules_rounds", "player_match_stats", "team_match_stats"),
         "competitions",
     ),
-    **dict.fromkeys(("PlayerSeasonStats", "PlayerSeasonHistory"), "season_stats"),
-    **dict.fromkeys(("InjuryType", "InjuryRecord"), "injuries"),
+    **dict.fromkeys(("player_season_stats", "player_season_history"), "season_stats"),
+    **dict.fromkeys(("injury_types", "injuries"), "injuries"),
     **dict.fromkeys(
-        ("ManagedClub", "Tactic", "TacticSlot", "TacticSettingUnit", "SetPieceRoutine",
-         "Selection", "TeamTraining", "TrainingSchedule", "TrainingWeek", "TrainingDay",
-         "MentoringGroup", "SquadPlannerSlot"),
+        ("managed_clubs", "tactics", "tactics_slots", "tactics_slots_in_possession_settings",
+         "tactics_slots_out_of_possession_settings", "set_pieces", "selections", "training",
+         "training_weeks", "training_weeks_days", "training_schedule_library", "mentoring",
+         "squad_planner"),
         "managed",
     ),
-    **dict.fromkeys(("SaveInfo", "Fm27Span"), "save"),
 }  # fmt: skip

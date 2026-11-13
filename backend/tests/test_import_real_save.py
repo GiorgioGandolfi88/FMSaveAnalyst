@@ -24,9 +24,9 @@ def test_import_real_save(tmp_path: Path) -> None:
     result = import_save(db, Path(SAVE), readers=READERS)
     assert {r.reader for r in result.readers} == set(READERS)
     conn = sqlite3.connect(db)
-    assert conn.execute("SELECT count(*) FROM Club").fetchone()[0] > 1000
-    assert conn.execute("SELECT count(*) FROM Fixture WHERE played = 1").fetchone()[0] > 100
-    assert conn.execute("SELECT count(*) FROM LeagueTableRow").fetchone()[0] > 100
+    assert conn.execute("SELECT count(*) FROM clubs").fetchone()[0] > 1000
+    assert conn.execute("SELECT count(*) FROM fixtures WHERE played = 1").fetchone()[0] > 100
+    assert conn.execute("SELECT count(*) FROM league_tables_rows").fetchone()[0] > 100
     conn.close()
     with pytest.raises(ImportRejected):
         import_save(db, Path(SAVE), readers=READERS)

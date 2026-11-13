@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from fmsa import __version__, api_ai, api_dashboards, api_query
+from fmsa import __version__, api_ai, api_dashboards, api_players, api_query
 from fmsa.api_careers import create_router
 from fmsa.careers import JobRunner
 from fmsa.config import Settings, SettingsStore
@@ -72,9 +72,12 @@ def create_app(paths: AppPaths, store: SettingsStore, token: str) -> FastAPI:
     def put_settings(settings: Settings) -> Settings:
         return store.save(settings)
 
-    app.include_router(create_router(store, JobRunner(paths.logs_dir / "imports")))
+    app.include_router(
+        create_router(store, JobRunner(paths.logs_dir / "imports"), paths.data_dir)
+    )
     app.include_router(api_query.create_router(store, paths.data_dir))
     app.include_router(api_dashboards.create_router(store, paths.data_dir))
+    app.include_router(api_players.create_router(store, paths.data_dir))
     app.include_router(api_ai.create_router(store))
     _mount_frontend(app, paths.frontend_dir)
     return app

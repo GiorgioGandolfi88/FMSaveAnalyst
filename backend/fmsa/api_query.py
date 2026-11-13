@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import io
 import json
 import os
@@ -16,6 +15,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from fmsa.careers import saved_queries_file
 from fmsa.config import SettingsStore
 from fmsa.db import open_reader, q
 from fmsa.ingest.readers import CATEGORIES
@@ -64,13 +64,12 @@ def describe_schema(db_path: Path, masked: set[tuple[str, str]]) -> list[dict[st
                     logical = name.removesuffix(suffix)
             is_history = logical != name
             info = catalog.get(logical, {})
-            record_type = info.get("record_type") or ""
             if name.startswith("ref_"):
                 group = "reference"
             elif is_history:
                 group = "history"
             elif info:
-                group = CATEGORIES.get(record_type, "other")
+                group = CATEGORIES.get(logical, "other")
             else:
                 group = "derived"
             columns = []
@@ -97,6 +96,7 @@ def describe_schema(db_path: Path, masked: set[tuple[str, str]]) -> list[dict[st
             result.append(
                 {
                     "name": name,
+                    "logical": logical,
                     "type": obj_type,
                     "group": group,
                     "kind": info.get("kind"),
@@ -130,11 +130,6 @@ class SavedQuery(BaseModel):
     name: str
     sql: str
     model: dict[str, Any] | None = None  # query builder state, if built visually
-
-
-def saved_queries_file(data_dir: Path, career: Path) -> Path:
-    digest = hashlib.sha1(str(career.resolve()).lower().encode()).hexdigest()[:8]
-    return data_dir / "queries" / f"{career.stem}-{digest}.json"
 
 
 def create_router(store: SettingsStore, data_dir: Path) -> APIRouter:

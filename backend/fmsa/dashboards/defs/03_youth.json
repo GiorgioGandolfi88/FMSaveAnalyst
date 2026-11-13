@@ -23,7 +23,7 @@
     "it": "Under {max_age} con abilità attuale ≥ {min_ca}",
     "en": "Under-{max_age}s with current ability ≥ {min_ca}"
    },
-   "sql": "SELECT count(*) AS value FROM Player WHERE age <= :max_age AND ability_current >= :min_ca AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM LeagueTableRow r JOIN LeagueTable lt ON lt._rid = r._parent_rid WHERE lt.competition_id = :league))"
+   "sql": "SELECT count(*) AS value FROM players WHERE age <= :max_age AND ability_current >= :min_ca AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM league_tables_rows r JOIN league_tables lt ON lt._import_id = r._import_id AND lt.league_tables_idx = r.league_tables_idx WHERE lt.competition_id = :league))"
   },
   {
    "id": "u19",
@@ -34,7 +34,7 @@
     "it": "Under {max_age_2} con abilità attuale ≥ {min_ca_2}",
     "en": "Under-{max_age_2}s with current ability ≥ {min_ca_2}"
    },
-   "sql": "SELECT count(*) AS value FROM Player WHERE age <= :max_age_2 AND ability_current >= :min_ca_2 AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM LeagueTableRow r JOIN LeagueTable lt ON lt._rid = r._parent_rid WHERE lt.competition_id = :league))"
+   "sql": "SELECT count(*) AS value FROM players WHERE age <= :max_age_2 AND ability_current >= :min_ca_2 AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM league_tables_rows r JOIN league_tables lt ON lt._import_id = r._import_id AND lt.league_tables_idx = r.league_tables_idx WHERE lt.competition_id = :league))"
   },
   {
    "id": "best",
@@ -45,7 +45,7 @@
     "it": "Il migliore under {max_age}",
     "en": "Best under-{max_age}"
    },
-   "sql": "SELECT name || ' (' || ability_current || ')' AS value FROM Player WHERE age <= :max_age AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM LeagueTableRow r JOIN LeagueTable lt ON lt._rid = r._parent_rid WHERE lt.competition_id = :league)) ORDER BY ability_current DESC LIMIT 1"
+   "sql": "SELECT name || ' (' || ability_current || ')' AS value FROM players WHERE age <= :max_age AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM league_tables_rows r JOIN league_tables lt ON lt._import_id = r._import_id AND lt.league_tables_idx = r.league_tables_idx WHERE lt.competition_id = :league)) ORDER BY ability_current DESC LIMIT 1"
   },
   {
    "id": "by_age",
@@ -57,7 +57,7 @@
     "it": "Under {max_age} con abilità attuale ≥ {min_ca_2}, per età",
     "en": "Under-{max_age}s with current ability ≥ {min_ca_2}, by age"
    },
-   "sql": "SELECT age, count(*) AS players FROM Player WHERE age <= :max_age AND ability_current >= :min_ca_2 AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM LeagueTableRow r JOIN LeagueTable lt ON lt._rid = r._parent_rid WHERE lt.competition_id = :league)) GROUP BY age ORDER BY age"
+   "sql": "SELECT age, count(*) AS players FROM players WHERE age <= :max_age AND ability_current >= :min_ca_2 AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM league_tables_rows r JOIN league_tables lt ON lt._import_id = r._import_id AND lt.league_tables_idx = r.league_tables_idx WHERE lt.competition_id = :league)) GROUP BY age ORDER BY age"
   },
   {
    "id": "scatter",
@@ -70,7 +70,7 @@
     "it": "I migliori under {max_age} (fino a 300)",
     "en": "The best under-{max_age}s (up to 300)"
    },
-   "sql": "SELECT name, age, ability_current FROM Player WHERE age <= :max_age AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM LeagueTableRow r JOIN LeagueTable lt ON lt._rid = r._parent_rid WHERE lt.competition_id = :league)) ORDER BY ability_current DESC LIMIT 300"
+   "sql": "SELECT name, age, ability_current FROM players WHERE age <= :max_age AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM league_tables_rows r JOIN league_tables lt ON lt._import_id = r._import_id AND lt.league_tables_idx = r.league_tables_idx WHERE lt.competition_id = :league)) ORDER BY ability_current DESC LIMIT 300"
   },
   {
    "id": "list",
@@ -80,7 +80,7 @@
     "it": "I {top} migliori under {max_age}",
     "en": "The {top} best under-{max_age}s"
    },
-   "sql": "SELECT name, age, club_name, natural_positions AS positions, ability_current, ability_potential, transfer_value FROM Player WHERE age <= :max_age AND ability_current >= :min_ca AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM LeagueTableRow r JOIN LeagueTable lt ON lt._rid = r._parent_rid WHERE lt.competition_id = :league)) ORDER BY ability_current DESC LIMIT :top"
+   "sql": "SELECT name, age, club_name, natural_positions AS positions, ability_current, ability_potential, transfer_value FROM players WHERE age <= :max_age AND ability_current >= :min_ca AND (:nation IS NULL OR club_nation_id = :nation) AND (:league IS NULL OR club_uid IN (SELECT r.club_uid FROM league_tables_rows r JOIN league_tables lt ON lt._import_id = r._import_id AND lt.league_tables_idx = r.league_tables_idx WHERE lt.competition_id = :league)) ORDER BY ability_current DESC LIMIT :top"
   }
  ],
  "inputs": [

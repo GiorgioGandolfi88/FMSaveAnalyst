@@ -104,6 +104,12 @@ export interface CareerSummary {
   reference_version: string | null;
   size_mb: number;
   error: string | null;
+  import_readers: string[] | null;
+}
+
+export interface CareerFile {
+  path: string;
+  size_mb: number;
 }
 
 export interface SkippedReader {
@@ -187,13 +193,19 @@ export const careersApi = {
   list: () => request<CareerSummary[]>("GET", "/careers"),
   detail: (path: string) =>
     request<CareerDetail>("GET", `/careers/detail?path=${encodeURIComponent(path)}`),
-  create: (name: string, save_path: string) =>
-    request<Job>("POST", "/careers", { name, save_path }),
+  create: (name: string, save_path: string, readers: string[] | null = null) =>
+    request<Job>("POST", "/careers", { name, save_path, readers }),
   open: (path: string) => request<CareerSummary>("POST", "/careers/open", { path }),
   check: (career_path: string, save_path: string) =>
     request<ContinuityReport>("POST", "/careers/check", { career_path, save_path }),
-  importSave: (career_path: string, save_path: string) =>
-    request<Job>("POST", "/careers/import", { career_path, save_path }),
+  importSave: (career_path: string, save_path: string, readers: string[] | null = null) =>
+    request<Job>("POST", "/careers/import", { career_path, save_path, readers }),
+  importGroups: () => request<Record<string, string[]>>("GET", "/import-groups"),
+  rename: (path: string, name: string) =>
+    request<CareerSummary>("POST", "/careers/rename", { path, name }),
+  files: (path: string) =>
+    request<CareerFile[]>("GET", `/careers/files?path=${encodeURIComponent(path)}`),
+  remove: (path: string) => request<{ deleted: string[] }>("POST", "/careers/delete", { path }),
   job: (id: string) => request<Job>("GET", `/jobs/${id}`),
   importLog: (path: string, importId: number) =>
     request<ImportLog>(
@@ -274,6 +286,8 @@ export interface Relation {
   from_column: string;
   to_table: string;
   to_column: string;
+  /** extra (from, to) column pairs the join also needs (child tables: _import_id + keys) */
+  also?: [string, string][];
 }
 
 export interface Schema {
@@ -377,6 +391,8 @@ export interface DashboardSummary {
   params: string[];
   inputs?: DashboardInput[];
   source: "builtin" | "user";
+  builtin?: boolean; // a built-in dashboard with this id exists (can be restored)
+  order?: number;
   widgets: number;
 }
 
@@ -429,6 +445,154 @@ export const dashboardsApi = {
   get: (id: string) => request<Dashboard>("GET", `/dashboards/${id}`),
   data: (id: string, params: Record<string, unknown>) =>
     request<{ widgets: Record<string, WidgetData> }>("POST", `/dashboards/${id}/data`, { params }),
+  preview: (dashboard: Dashboard, params: Record<string, unknown>) =>
+    request<{ widgets: Record<string, WidgetData> }>("POST", "/dashboards/preview", {
+      dashboard,
+      params,
+    }),
+  save: (dashboard: Dashboard, oldId: string | null) =>
+    request<Dashboard>("PUT", `/dashboards/${encodeURIComponent(dashboard.id)}`, {
+      dashboard,
+      old_id: oldId,
+    }),
+  remove: (id: string) => request<{ deleted: string }>("DELETE", `/dashboards/${id}`),
+  restore: (id: string) => request<Dashboard>("POST", `/dashboards/${id}/restore`),
+  hidden: () => request<{ id: string; title: Localized }[]>("GET", "/dashboards/hidden"),
+};
+
+// ---------------------------------------------------------------- players
+
+export interface PlayerRow {
+  uid: number;
+  birth_date: string;
+  name: string;
+  age: number | null;
+  natural_positions: string[];
+  ca: number | null;
+  pa: number | null;
+  club_name: string | null;
+  transfer_value: number | null;
+  contract_wage: number | null;
+  contract_end: string | null;
+  apps: number | null;
+  goals: number | null;
+  assists: number | null;
+  rating: number | null;
+}
+
+export interface PlayerList {
+  total: number;
+  rows: PlayerRow[];
+  masked: string[];
+  cutoffs: Record<string, [number, number]>;
+}
+
+export interface PlayerListRequest {
+  search: string;
+  group: string;
+  shortlist_only: boolean;
+  kind: string;
+  sort: string;
+  desc: boolean;
+  offset: number;
+  limit: number;
+}
+
+export interface PlayerAttribute {
+  key: string;
+  value: number | null;
+  rank: number | null;
+  hidden: boolean;
+}
+
+export interface PlayerStatRow {
+  section: string;
+  key: string;
+  kind: "count" | "plain" | "rate" | "rating";
+  total: number | null;
+  per90: number | null;
+  rank: number | null;
+}
+
+export interface PlayerStats {
+  kind: string;
+  rows: PlayerStatRow[];
+  group_size: number;
+}
+
+export interface PlayerCard {
+  uid: number;
+  birth_date: string;
+  name: string;
+  age: number | null;
+  height_cm: number | null;
+  club_name: string | null;
+  natural_positions: string[];
+  accomplished_positions: string[];
+  group: string | null;
+  ability_current: number | null;
+  ability_potential: number | null;
+  ca_hidden: boolean;
+  pa_hidden: boolean;
+  transfer_value: number | null;
+  wage: number | null;
+  contract_end: string | null;
+  left_foot: number | null;
+  right_foot: number | null;
+  condition: number | null;
+  match_sharpness: number | null;
+  club_join_date: string | null;
+  on_loan: number | null;
+  loan_parent_club_name: string | null;
+  reputation: { current: number | null; home: number | null; world: number | null };
+  personality: { key: string; value: number | null; hidden: boolean }[];
+  traits: string[];
+  positions: Record<string, number | null>;
+  attributes: Record<string, PlayerAttribute[]>;
+  wheel: { percentile: number | null; group: string | null; label: string | null };
+  stat_kinds: string[];
+  stats: PlayerStats | null;
+  season: { apps: number | null; goals: number | null; rating: number | null };
+  contract: {
+    club_name: string | null;
+    squad_status: string | null;
+    kind: string | null;
+    wage: number | null;
+    start: string | null;
+    end: string | null;
+    on_loan: number | null;
+    loan_parent_club_name: string | null;
+    loan_end: string | null;
+    clauses: { kind: string; parameter: number | null; value: number | null }[];
+  } | null;
+}
+
+export interface PlayerKey {
+  uid: number;
+  birth_date: string;
+}
+
+export const playersApi = {
+  meta: () =>
+    request<{
+      groups: Record<string, { positions: string[]; label: string }>;
+      stat_kinds: string[];
+    }>("GET", "/players/meta"),
+  list: (body: PlayerListRequest) => request<PlayerList>("POST", "/players/list", body),
+  card: (key: PlayerKey, kind = "") =>
+    request<PlayerCard>(
+      "GET",
+      `/players/card?uid=${key.uid}&birth_date=${encodeURIComponent(key.birth_date)}` +
+        `&kind=${encodeURIComponent(kind)}`,
+    ),
+  stats: (key: PlayerKey, kind: string) =>
+    request<PlayerStats>(
+      "GET",
+      `/players/stats?uid=${key.uid}&birth_date=${encodeURIComponent(key.birth_date)}` +
+        `&kind=${encodeURIComponent(kind)}`,
+    ),
+  shortlist: () => request<PlayerKey[]>("GET", "/players/shortlist"),
+  saveShortlist: (items: PlayerKey[]) => request<PlayerKey[]>("PUT", "/players/shortlist", items),
 };
 
 export function localized(text: Localized | undefined, language: string): string {

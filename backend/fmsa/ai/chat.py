@@ -83,7 +83,7 @@ def _context(db: ReadOnlySession, masking: MaskingSettings, language: str) -> di
         )
         if flag
     ] + list(masking.extra_columns)
-    managed = one("SELECT club_name || ' (club_uid ' || club_uid || ')' FROM ManagedClub")
+    managed = one("SELECT club_name || ' (club_uid ' || club_uid || ')' FROM managed_clubs")
     return {
         "career_name": one("SELECT value FROM _meta WHERE key = 'career_name'") or "career",
         "game": one("SELECT value FROM _meta WHERE key = 'game'") or "Football Manager",

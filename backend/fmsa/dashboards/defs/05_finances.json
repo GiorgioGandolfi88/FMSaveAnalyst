@@ -6,16 +6,16 @@
   "params": ["club"],
   "widgets": [
     {"id": "balance_now", "type": "kpi", "span": 4, "format": "money", "title": {"it": "Saldo più recente", "en": "Latest balance"},
-     "sql": "SELECT balance AS value FROM FinanceMonth WHERE club_uid = :club ORDER BY month DESC LIMIT 1"},
+     "sql": "SELECT balance AS value FROM finances WHERE club_uid = :club ORDER BY month DESC LIMIT 1"},
     {"id": "transfer_budget", "type": "kpi", "span": 4, "format": "money", "title": {"it": "Budget trasferimenti residuo", "en": "Transfer budget left"},
-     "sql": "SELECT transfer_budget_remaining AS value FROM FinanceMonth WHERE club_uid = :club ORDER BY month DESC LIMIT 1"},
+     "sql": "SELECT transfer_budget_remaining AS value FROM finances WHERE club_uid = :club ORDER BY month DESC LIMIT 1"},
     {"id": "wage_room", "type": "kpi", "span": 4, "format": "money", "title": {"it": "Margine sul budget ingaggi (settimanale)", "en": "Weekly wage budget room"},
-     "sql": "SELECT wage_budget_weekly - wage_payroll_weekly AS value FROM FinanceMonth WHERE club_uid = :club ORDER BY month DESC LIMIT 1"},
+     "sql": "SELECT wage_budget_weekly - wage_payroll_weekly AS value FROM finances WHERE club_uid = :club ORDER BY month DESC LIMIT 1"},
     {"id": "balance", "type": "line", "span": 12, "x": "date", "y": "value",
      "title": {"it": "Saldo mensile", "en": "Monthly balance"},
-     "sql": "SELECT month AS date, balance AS value FROM FinanceMonth WHERE club_uid = :club ORDER BY month"},
+     "sql": "SELECT month AS date, balance AS value FROM finances WHERE club_uid = :club ORDER BY month"},
     {"id": "flows", "type": "line", "span": 12, "x": "date", "y": "value", "series": "series",
      "title": {"it": "Entrate e uscite mensili", "en": "Monthly income and expenditure"},
-     "sql": "SELECT month AS date, 'income' AS series, total_income AS value FROM FinanceMonth WHERE club_uid = :club UNION ALL SELECT month, 'expenditure', total_expenditure FROM FinanceMonth WHERE club_uid = :club ORDER BY date"}
+     "sql": "SELECT month AS date, 'income' AS series, total_income AS value FROM finances WHERE club_uid = :club UNION ALL SELECT month, 'expenditure', total_expenditure FROM finances WHERE club_uid = :club ORDER BY date"}
   ]
 }

@@ -83,8 +83,10 @@ class ToolRunner:
                 text = json.dumps(
                     {
                         "tables": items,
-                        "note": "Tables are named like fmsave record types. Tables that keep history also have "
-                        "<name>_all (current + earlier versions) and <name>_history.",
+                        "note": "Tables are named like fmsave readers; lists of sub-records are child "
+                        "tables <parent>_<field> joined on _import_id + the parent's *_idx keys. "
+                        "Tables that keep history also have <name>_all (current + earlier "
+                        "versions) and <name>_history.",
                     }
                 )
                 return text, False, {"kind": "tables", "count": len(items)}
@@ -97,7 +99,7 @@ class ToolRunner:
                     {"name": c["name"], "type": c["type"], "from": c["source_path"],
                      **({"hidden": True} if c["masked"] else {})}
                     for c in obj["columns"]
-                    if not c["internal"] or c["name"] in ("_rid", "_parent_rid", "_valid_from")
+                    if not c["internal"] or c["name"] in ("_import_id", "_valid_to")
                 ]  # fmt: skip
                 text = json.dumps({"table": table, "kind": obj["kind"], "columns": cols})
                 return text, False, {"kind": "columns", "table": table, "count": len(cols)}

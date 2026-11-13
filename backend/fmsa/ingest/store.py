@@ -1,17 +1,18 @@
 """Write fmsave tables into a career database, merging with what earlier imports stored.
 
-Every record type has a physical table named like the type (`Player`, `LeagueTableRow`, ...)
-holding the CURRENT state. What earlier imports stored and later changed is moved, never lost:
+Each reader has a table named like the reader (`players`) and one table per list of
+sub-records (`league_tables_rows`, ...): see fmsa.ingest.schema. The tables hold the CURRENT
+state. What earlier imports stored and later changed is moved, never lost:
 
-- ENTITY / SNAPSHOT readers: replaced versions and older snapshots go to `<Type>_history`
-  (same columns, plus `_valid_to` = the import that replaced them on top-level tables);
-  the view `<Type>_all` is current + history together;
+- ENTITY / SNAPSHOT readers: replaced versions and older snapshots go to `<table>_history`
+  (same columns, plus `_valid_to` = the import that replaced them); the view `<table>_all` is
+  current + history together;
 - EVENT readers accumulate in the table itself across imports (a save only keeps a window);
 - LATEST readers keep only the last import.
 
-Tables of nested records (`Attributes`, `LeagueTableRow`, ...) carry `_parent_table`,
-`_parent_field`, `_parent_rid` (the `_rid` of the record that holds them) and `_ord` (position
-in the parent's list).
+Every row carries `_import_id`, the import that wrote it. The idx keys (`players_idx`,
+`rows_idx`, ...) are positions within that import, so a child joins its parent on
+`_import_id` + the parent's idx keys. A child row always moves together with its parent.
 """
 
 from __future__ import annotations
@@ -30,21 +31,17 @@ BATCH = 5000
 CHUNK = 500
 
 TOP_META: dict[Kind, list[tuple[str, str]]] = {
-    Kind.ENTITY: [("_key", "INTEGER"), ("_hash", "INTEGER"), ("_valid_from", "INTEGER")],
+    Kind.ENTITY: [("_key", "INTEGER"), ("_hash", "INTEGER")],
     Kind.EVENT: [("_key", "INTEGER"), ("_hash", "INTEGER"), ("_first_seen", "INTEGER"),
                  ("_last_seen", "INTEGER")],
-    Kind.SNAPSHOT: [("_import_id", "INTEGER")],
-    Kind.LATEST: [("_import_id", "INTEGER")],
+    Kind.SNAPSHOT: [],
+    Kind.LATEST: [],
 }  # fmt: skip
-CHILD_META: list[tuple[str, str]] = [
-    ("_parent_table", "TEXT"), ("_parent_field", "TEXT"), ("_parent_rid", "INTEGER"),
-    ("_ord", "INTEGER"),
-]  # fmt: skip
 HISTORY_KINDS = frozenset({Kind.ENTITY, Kind.SNAPSHOT})
 # Columns dashboards and typical queries filter on.
 FILTER_COLUMNS = frozenset(
     {"club_uid", "player_uid", "competition_id", "season_year", "home_club_uid", "away_club_uid",
-     "team_id"}
+     "team_id", "uid"}
 )  # fmt: skip
 
 Tree = tuple[tuple[Any, ...], tuple[tuple["Tree", ...], ...]]
@@ -75,20 +72,14 @@ class MergeStats:
 class TableWriter:
     """Creates/extends the tables of one reader and merges a fmsave Table into them."""
 
-    def __init__(
-        self,
-        conn: sqlite3.Connection,
-        spec: ReaderSpec,
-        record_type: type,
-        skip_groups: frozenset[type] = frozenset(),
-    ) -> None:
+    def __init__(self, conn: sqlite3.Connection, spec: ReaderSpec, record_type: type) -> None:
         self.conn = conn
         self.spec = spec
-        self.layout = build_layout(record_type, skip_groups)
+        self.layout = build_layout(record_type, spec.name)
         self.history = spec.kind in HISTORY_KINDS
-        self.row_makers: dict[str, Callable[[Iterable[Any]], Iterator[tuple[Any, ...]]]] = {}
-        for layout in self.layout.walk():
-            self.row_makers.setdefault(layout.table, make_rows(layout))
+        self.row_makers: dict[str, Callable[[Iterable[Any]], Iterator[tuple[Any, ...]]]] = {
+            layout.table: make_rows(layout) for layout in self.layout.walk()
+        }
         names = self.layout.column_names
         missing = [k for k in spec.key if k not in names]
         if missing:
@@ -96,45 +87,40 @@ class TableWriter:
         self.key_idx = [names.index(k) for k in spec.key]
         self.next_rid: dict[str, int] = {}
         self.buffers: dict[str, list[tuple[Any, ...]]] = {}
-        # per destination table (in first-seen order): records read / rows written
+        self.import_id = 0
+        # per destination table (parents first): records read / rows written
         self.read_counts: dict[str, int] = {}
         self.insert_counts: dict[str, int] = {}
-        self.parents: dict[str, set[str]] = {}
+        self.parents: dict[str, str | None] = {}
         for layout in self.layout.walk():
-            self.read_counts.setdefault(layout.table, 0)
-            self.insert_counts.setdefault(layout.table, 0)
-            self.parents.setdefault(layout.table, set())
-            for child in layout.children:
-                self.parents.setdefault(child.layout.table, set()).add(layout.table)
+            self.read_counts[layout.table] = 0
+            self.insert_counts[layout.table] = 0
+            self.parents[layout.table] = layout.parent.table if layout.parent else None
 
     @property
     def tables(self) -> list[str]:
         return list(self.read_counts)
 
     def layouts(self) -> dict[str, Layout]:
-        """One layout per table (a type reached through several fields appears once)."""
-        out: dict[str, Layout] = {}
-        for layout in self.layout.walk():
-            out.setdefault(layout.table, layout)
-        return out
+        return {layout.table: layout for layout in self.layout.walk()}
 
     # ------------------------------------------------------------------ DDL
 
-    def _meta(self, layout: Layout) -> list[tuple[str, str]]:
-        return TOP_META[self.spec.kind] if layout is self.layout else CHILD_META
+    def _cols(self, layout: Layout) -> list[tuple[str, str]]:
+        meta = TOP_META[self.spec.kind] if layout is self.layout else []
+        return [("_rid", "INTEGER PRIMARY KEY"), ("_import_id", "INTEGER"), *meta,
+                *((k, "INTEGER") for k in layout.keys),
+                *((c.name, c.sql_type) for c in layout.columns)]  # fmt: skip
 
     def ensure_tables(self) -> None:
         for table, layout in self.layouts().items():
-            cols = [("_rid", "INTEGER PRIMARY KEY"), *self._meta(layout),
-                    *((c.name, c.sql_type) for c in layout.columns)]  # fmt: skip
-            top = layout is self.layout
-            self._ensure(table, cols, top)
+            cols = self._cols(layout)
+            self._ensure(table, cols, layout)
             if self.history:
-                extra = [("_valid_to", "INTEGER")] if top else []
-                self._ensure(history_table(table), [*cols, *extra], top)
+                self._ensure(history_table(table), [*cols, ("_valid_to", "INTEGER")], layout)
             self.next_rid[table] = self._max_rid(table) + 1
 
-    def _ensure(self, table: str, cols: list[tuple[str, str]], top: bool) -> None:
+    def _ensure(self, table: str, cols: list[tuple[str, str]], layout: Layout) -> None:
         existing = {r[1] for r in self.conn.execute(f"PRAGMA table_info({q(table)})")}
         if not existing:
             ddl = ", ".join(f"{q(n)} {t}".rstrip() for n, t in cols)
@@ -143,9 +129,12 @@ class TableWriter:
             for n, t in cols:
                 if n not in existing:
                     self.conn.execute(f"ALTER TABLE {q(table)} ADD COLUMN {q(n)} {t}".rstrip())
+        # joins: a child on its parent's keys, every descendant on the top-level key
+        self._index(table, ["_import_id", *layout.keys])
+        if layout.parent is not None:
+            self._index(table, ["_import_id", *layout.parent.keys])
         names = {n for n, _ in cols}
-        if not top:
-            self._index(table, ["_parent_rid", "_parent_table"])
+        if layout is not self.layout:
             return
         if "_key" in names:
             self._index(table, ["_key"])
@@ -171,19 +160,17 @@ class TableWriter:
         return [r[1] for r in self.conn.execute(f"PRAGMA table_info({q(table)})")]
 
     def ensure_views(self) -> list[str]:
-        """`<Type>_all` = current rows + history (for readers that keep history)."""
+        """`<table>_all` = current rows + history (for readers that keep history)."""
         if not self.history:
             return []
         made = []
-        for table, layout in self.layouts().items():
+        for table in self.layouts():
             cols = ", ".join(q(c) for c in self._columns(table))
-            current = f"SELECT {cols}" + (", NULL AS _valid_to" if layout is self.layout else "")
-            past = f"SELECT {cols}" + (", _valid_to" if layout is self.layout else "")
             view = all_view(table)
             self.conn.execute(f"DROP VIEW IF EXISTS {q(view)}")
             self.conn.execute(
-                f"CREATE VIEW {q(view)} AS {current} FROM {q(table)} "
-                f"UNION ALL {past} FROM {q(history_table(table))}"
+                f"CREATE VIEW {q(view)} AS SELECT {cols}, NULL AS _valid_to FROM {q(table)} "
+                f"UNION ALL SELECT {cols}, _valid_to FROM {q(history_table(table))}"
             )
             made.append(view)
         return made
@@ -191,18 +178,13 @@ class TableWriter:
     # ------------------------------------------------------------------ data
 
     def _trees(self, layout: Layout, records: Sequence[Any]) -> Iterator[Tree]:
-        table = layout.table
-        self.read_counts[table] += len(records)
-        rows = self.row_makers[table](records)
+        self.read_counts[layout.table] += len(records)
+        rows = self.row_makers[layout.table](records)
         children = layout.children
         for record, row in zip(records, rows, strict=True):
-            if children:
-                kids = tuple(
-                    tuple(self._trees(child.layout, child_records(record, child)))
-                    for child in children
-                )
-            else:
-                kids = ()
+            kids = tuple(
+                tuple(self._trees(child, child_records(record, child))) for child in children
+            )
             yield (row, kids)
 
     def _push(self, table: str, row: tuple[Any, ...]) -> None:
@@ -224,87 +206,82 @@ class TableWriter:
         for table in list(self.buffers):
             self._flush(table)
 
-    def _insert(self, tree: Tree, meta: tuple[Any, ...]) -> int:
-        table = self.layout.table
+    def _new_rid(self, table: str) -> int:
         rid = self.next_rid[table]
         self.next_rid[table] = rid + 1
-        self._push(table, (rid, *meta, *tree[0]))
-        self._insert_children(self.layout, rid, tree)
         return rid
 
-    def _insert_children(self, layout: Layout, parent_rid: int, tree: Tree) -> None:
-        for child, subtrees in zip(layout.children, tree[1], strict=True):
-            table = child.layout.table
-            for ordinal, sub in enumerate(subtrees):
-                rid = self.next_rid[table]
-                self.next_rid[table] = rid + 1
-                self._push(table, (rid, layout.table, child.field, parent_rid, ordinal, *sub[0]))
-                self._insert_children(child.layout, rid, sub)
+    def _insert(self, tree: Tree, idx: int, meta: tuple[Any, ...]) -> None:
+        table = self.layout.table
+        self._push(table, (self._new_rid(table), self.import_id, *meta, idx, *tree[0]))
+        self._insert_children(self.layout, (idx,), tree)
 
-    def _descendants(self, layout: Layout, rids: list[int]) -> Iterator[tuple[Layout, list[int]]]:
-        """(layout, rids) for every child table row below `rids` of `layout`, deepest first."""
-        for child in layout.children:
-            table = child.layout.table
-            found: list[int] = []
-            for start in range(0, len(rids), CHUNK):
-                chunk = rids[start : start + CHUNK]
-                marks = ", ".join("?" * len(chunk))
-                found += [
-                    r[0]
-                    for r in self.conn.execute(
-                        f"SELECT _rid FROM {q(table)} WHERE _parent_table = ? "
-                        f"AND _parent_field = ? AND _parent_rid IN ({marks})",
-                        (layout.table, child.field, *chunk),
-                    )
-                ]
-            if found:
-                yield from self._descendants(child.layout, found)
-                yield (child.layout, found)
+    def _insert_children(self, layout: Layout, keys: tuple[int, ...], tree: Tree) -> None:
+        for child, subtrees in zip(layout.children, tree[1], strict=True):
+            table = child.table
+            for ordinal, sub in enumerate(subtrees):
+                sub_keys = (*keys, ordinal)
+                self._push(table, (self._new_rid(table), self.import_id, *sub_keys, *sub[0]))
+                self._insert_children(child, sub_keys, sub)
+
+    def _move_all(self, valid_to: int, keep: bool) -> None:
+        """Every row of every table of this reader to history (or away)."""
+        for table in self.layouts():
+            if keep:
+                cols = ", ".join(q(c) for c in self._columns(table))
+                self.conn.execute(
+                    f"INSERT INTO {q(history_table(table))} ({cols}, _valid_to) "
+                    f"SELECT {cols}, ? FROM {q(table)}",
+                    (valid_to,),
+                )
+            self.conn.execute(f"DELETE FROM {q(table)}")
 
     def _remove(self, rids: list[int], valid_to: int | None, keep: bool) -> None:
         """Delete top-level rows and their descendants; with `keep`, copy them to history."""
-        targets = [*self._descendants(self.layout, rids), (self.layout, rids)]
-        for layout, ids in targets:
-            table = layout.table
-            cols = ", ".join(q(c) for c in self._columns(table))
-            top = layout is self.layout
-            for start in range(0, len(ids), CHUNK):
-                chunk = ids[start : start + CHUNK]
-                marks = ", ".join("?" * len(chunk))
-                if keep:
-                    if top:
-                        self.conn.execute(
-                            f"INSERT INTO {q(history_table(table))} ({cols}, _valid_to) "
-                            f"SELECT {cols}, ? FROM {q(table)} WHERE _rid IN ({marks})",
-                            (valid_to, *chunk),
-                        )
-                    else:
-                        self.conn.execute(
-                            f"INSERT INTO {q(history_table(table))} ({cols}) "
-                            f"SELECT {cols} FROM {q(table)} WHERE _rid IN ({marks})",
-                            chunk,
-                        )
-                self.conn.execute(f"DELETE FROM {q(table)} WHERE _rid IN ({marks})", chunk)
+        top = self.layout.table
+        top_key = self.layout.own_key
+        self.conn.execute("CREATE TEMP TABLE IF NOT EXISTS _fmsa_gone (import_id, idx)")
+        self.conn.execute("DELETE FROM _fmsa_gone")
+        for start in range(0, len(rids), CHUNK):
+            chunk = rids[start : start + CHUNK]
+            marks = ", ".join("?" * len(chunk))
+            self.conn.execute(
+                f"INSERT INTO _fmsa_gone SELECT _import_id, {q(top_key)} FROM {q(top)} "
+                f"WHERE _rid IN ({marks})",
+                chunk,
+            )
+        where = f"(_import_id, {q(top_key)}) IN (SELECT import_id, idx FROM _fmsa_gone)"
+        for table in self.layouts():
+            if keep:
+                cols = ", ".join(q(c) for c in self._columns(table))
+                self.conn.execute(
+                    f"INSERT INTO {q(history_table(table))} ({cols}, _valid_to) "
+                    f"SELECT {cols}, ? FROM {q(table)} WHERE {where}",
+                    (valid_to,),
+                )
+            self.conn.execute(f"DELETE FROM {q(table)} WHERE {where}")
+        self.conn.execute("DELETE FROM _fmsa_gone")
 
     def merge(self, records: Sequence[Any], import_id: int) -> MergeStats:
         self.ensure_tables()
+        self.import_id = import_id
         kind = self.spec.kind
         stats = MergeStats()
         top = q(self.layout.table)
         if kind in (Kind.SNAPSHOT, Kind.LATEST):
-            old = [r[0] for r in self.conn.execute(f"SELECT _rid FROM {top}")]
+            old = self.conn.execute(f"SELECT count(*) FROM {top}").fetchone()[0]
             if old:
-                self._remove(old, import_id, keep=kind is Kind.SNAPSHOT)
-            stats.closed = len(old) if kind is Kind.SNAPSHOT else 0
-            for tree in self._trees(self.layout, records):
-                self._insert(tree, (import_id,))
+                self._move_all(import_id, keep=kind is Kind.SNAPSHOT)
+            stats.closed = old if kind is Kind.SNAPSHOT else 0
+            for idx, tree in enumerate(self._trees(self.layout, records)):
+                self._insert(tree, idx, ())
                 stats.rows += 1
             stats.inserted = stats.rows
             self.flush_all()
             return stats
 
         if kind is Kind.ENTITY:
-            sql = f"SELECT _key, _rid, _hash, _valid_from FROM {top}"
+            sql = f"SELECT _key, _rid, _hash, NULL FROM {top}"
         else:
             sql = f"SELECT _key, _rid, _hash, _first_seen FROM {top}"
         existing: dict[int, tuple[int, int, int]] = {
@@ -314,8 +291,9 @@ class TableWriter:
         occurrences: dict[Any, int] = {}
         touched: list[tuple[int, int]] = []  # (import_id, rid) for EVENT last_seen
         replaced: list[int] = []
+        new: list[tuple[Tree, int, tuple[Any, ...]]] = []
 
-        for tree in self._trees(self.layout, records):
+        for idx, tree in enumerate(self._trees(self.layout, records)):
             stats.rows += 1
             row_hash = h64(tree)
             base_key: Any = tuple(tree[0][i] for i in self.key_idx) if self.key_idx else row_hash
@@ -335,13 +313,11 @@ class TableWriter:
             else:
                 stats.updated += 1
                 replaced.append(old[0])
-                first = import_id if kind is Kind.ENTITY else old[2]
-            if kind is Kind.ENTITY:
-                self._insert(tree, (key, row_hash, first))
-            else:
-                self._insert(tree, (key, row_hash, first, import_id))
+                first = old[2]
+            meta = (key, row_hash) if kind is Kind.ENTITY else (key, row_hash, first, import_id)
+            new.append((tree, idx, meta))
 
-        self.flush_all()
+        # remove replaced versions first: their children are found by (_import_id, idx)
         if kind is Kind.ENTITY:
             gone = [v[0] for k, v in existing.items() if k not in seen]
             stats.closed = len(gone)
@@ -349,6 +325,9 @@ class TableWriter:
                 self._remove(replaced + gone, import_id, keep=True)
         elif replaced:
             self._remove(replaced, None, keep=False)
+        for tree, idx, meta in new:
+            self._insert(tree, idx, meta)
+        self.flush_all()
         if touched:
             self.conn.executemany(f"UPDATE {top} SET _last_seen = ? WHERE _rid = ?", touched)
         return stats

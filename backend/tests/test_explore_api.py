@@ -23,16 +23,17 @@ def client(tmp_path: Path) -> TestClient:
     conn.executescript(
         """
         CREATE TABLE _tables (table_name, base_table, reader, kind, parent_table, record_type,
-                              key_columns);
+                              key_columns, join_columns);
         INSERT INTO _tables VALUES ('players', 'players_history', 'players', 'entity', NULL,
-                                    'Player', '[]'),
-                                   ('Club', 'Club_history', 'clubs', 'entity', NULL, 'Club', '[]'),
-                                   ('Team', 'Team_history', 'clubs', 'child', 'Club', 'Team',
-                                    NULL);
+                                    'Player', '[]', NULL),
+                                   ('clubs', 'clubs_history', 'clubs', 'entity', NULL, 'Club',
+                                    '[]', NULL),
+                                   ('clubs_teams', 'clubs_teams_history', 'clubs', 'child', 'clubs',
+                                    'Team', NULL, '["_import_id", "clubs_idx"]');
         CREATE TABLE _columns (table_name, column_name, sql_type, source_path, field_status,
                                position);
         INSERT INTO _columns VALUES ('players', 'ability_potential', 'INTEGER',
-                                     'Player.ability.potential', '', 0);
+                                     'players.ability.potential', '', 0);
         CREATE TABLE players (_rid INTEGER PRIMARY KEY, uid INTEGER, name TEXT,
             birth_date TEXT, club_uid INTEGER, ability_potential INTEGER);
         INSERT INTO players VALUES
@@ -41,13 +42,15 @@ def client(tmp_path: Path) -> TestClient:
             (3, 3, 'Paolo 100%_Neri', '2004-03-03', 20, 170);
         CREATE TABLE players_history AS SELECT *, NULL AS _valid_to FROM players WHERE 0;
         CREATE VIEW players_all AS SELECT *, NULL AS _valid_to FROM players;
-        CREATE TABLE Club (_rid INTEGER PRIMARY KEY, uid INTEGER, name TEXT);
-        INSERT INTO Club VALUES (1, 10, 'Juventus'), (2, 20, 'Torino');
-        CREATE TABLE Club_history AS SELECT * FROM Club WHERE 0;
-        CREATE VIEW Club_all AS SELECT * FROM Club;
-        CREATE TABLE Team (_rid INTEGER PRIMARY KEY, _parent_table, _parent_rid, team_id);
-        CREATE TABLE Team_history AS SELECT * FROM Team WHERE 0;
-        CREATE VIEW Team_all AS SELECT * FROM Team;
+        CREATE TABLE clubs (_rid INTEGER PRIMARY KEY, _import_id, clubs_idx, uid INTEGER,
+                            name TEXT);
+        INSERT INTO clubs VALUES (1, 1, 0, 10, 'Juventus'), (2, 1, 1, 20, 'Torino');
+        CREATE TABLE clubs_history AS SELECT * FROM clubs WHERE 0;
+        CREATE VIEW clubs_all AS SELECT * FROM clubs;
+        CREATE TABLE clubs_teams (_rid INTEGER PRIMARY KEY, _import_id, clubs_idx, teams_idx,
+                                  team_id);
+        CREATE TABLE clubs_teams_history AS SELECT * FROM clubs_teams WHERE 0;
+        CREATE VIEW clubs_teams_all AS SELECT * FROM clubs_teams;
         """
     )
     conn.commit()
@@ -133,8 +136,10 @@ def test_saved_queries_roundtrip(client: TestClient) -> None:
 def test_relations_in_schema(client: TestClient) -> None:
     rel = client.get("/api/schema", headers=H).json()["relations"]
     pairs = {(r["from_table"], r["from_column"], r["to_table"], r["to_column"]) for r in rel}
-    assert ("players", "club_uid", "Club", "uid") in pairs
-    assert ("players_all", "club_uid", "Club", "uid") in pairs
-    assert ("Team", "_parent_rid", "Club", "_rid") in pairs
-    assert ("Team_all", "_parent_rid", "Club_all", "_rid") in pairs
-    assert ("Team_history", "_parent_rid", "Club_history", "_rid") in pairs
+    assert ("players", "club_uid", "clubs", "uid") in pairs
+    assert ("players_all", "club_uid", "clubs", "uid") in pairs
+    assert ("clubs_teams", "clubs_idx", "clubs", "clubs_idx") in pairs
+    assert ("clubs_teams_all", "clubs_idx", "clubs_all", "clubs_idx") in pairs
+    assert ("clubs_teams_history", "clubs_idx", "clubs_history", "clubs_idx") in pairs
+    team = next(r for r in rel if r["from_table"] == "clubs_teams" and r["to_table"] == "clubs")
+    assert team["also"] == [["_import_id", "_import_id"]]

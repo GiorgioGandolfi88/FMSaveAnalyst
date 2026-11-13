@@ -10,16 +10,21 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from fmsa.careers import (
+    CareerFileError,
     JobRunner,
     career_file_name,
+    career_files,
+    delete_career,
     import_history,
     import_log,
     list_careers,
     list_saves,
     read_summary,
+    rename_career,
 )
 from fmsa.config import SettingsStore
 from fmsa.ingest.continuity import check_continuity
+from fmsa.ingest.readers import IMPORT_GROUPS, READER_NAMES
 
 MAX_RECENT = 10
 
@@ -27,15 +32,33 @@ MAX_RECENT = 10
 class NewCareer(BaseModel):
     name: str
     save_path: str
+    readers: list[str] | None = None  # None: everything
 
 
 class CareerSave(BaseModel):
     career_path: str
     save_path: str
+    readers: list[str] | None = None
 
 
 class CareerPath(BaseModel):
     path: str
+
+
+class CareerRename(BaseModel):
+    path: str
+    name: str
+
+
+def _readers(selected: list[str] | None) -> tuple[str, ...] | None:
+    if selected is None or set(selected) >= set(READER_NAMES):
+        return None
+    unknown = sorted(set(selected) - set(READER_NAMES))
+    if unknown:
+        raise HTTPException(422, f"unknown readers: {', '.join(unknown)}")
+    if not selected:
+        raise HTTPException(422, "select at least one kind of data to import")
+    return tuple(selected)
 
 
 def _existing_file(path: str, what: str) -> Path:
@@ -45,7 +68,7 @@ def _existing_file(path: str, what: str) -> Path:
     return p
 
 
-def create_router(store: SettingsStore, jobs: JobRunner) -> APIRouter:
+def create_router(store: SettingsStore, jobs: JobRunner, data_dir: Path) -> APIRouter:
     router = APIRouter(prefix="/api")
 
     def reference_db() -> Path | None:
@@ -62,6 +85,10 @@ def create_router(store: SettingsStore, jobs: JobRunner) -> APIRouter:
     def saves(folder: str = "") -> dict[str, Any]:
         target = Path(folder or store.get().fm_save_dir)
         return {"folder": str(target), "saves": [asdict(s) for s in list_saves(target)]}
+
+    @router.get("/import-groups")
+    def import_groups() -> dict[str, list[str]]:
+        return {g: list(r) for g, r in IMPORT_GROUPS.items()}
 
     @router.get("/careers")
     def careers() -> list[dict[str, Any]]:
@@ -88,7 +115,14 @@ def create_router(store: SettingsStore, jobs: JobRunner) -> APIRouter:
         if target.exists():
             raise HTTPException(409, f"a career file named {file_name} already exists")
         try:
-            job = jobs.start("create", target, save, reference_db(), career_name=body.name.strip())
+            job = jobs.start(
+                "create",
+                target,
+                save,
+                reference_db(),
+                career_name=body.name.strip(),
+                readers=_readers(body.readers),
+            )
         except RuntimeError as exc:
             raise HTTPException(409, str(exc)) from exc
         remember(target)
@@ -111,10 +145,59 @@ def create_router(store: SettingsStore, jobs: JobRunner) -> APIRouter:
         career = _existing_file(body.career_path, "career")
         save = _existing_file(body.save_path, "save")
         try:
-            job = jobs.start("update", career, save, reference_db())
+            job = jobs.start("update", career, save, reference_db(), readers=_readers(body.readers))
         except RuntimeError as exc:
             raise HTTPException(409, str(exc)) from exc
         return job.to_dict()
+
+    def not_importing(career: Path) -> None:
+        if jobs.busy_with(career):
+            raise HTTPException(409, "an import into this career is running")
+
+    def replace_in_settings(old: Path, new: Path | None) -> None:
+        s = store.get()
+        same = str(old).lower()
+        recent = [r for r in s.recent_careers if r.lower() != same]
+        last = s.last_career
+        if new is not None:
+            recent = [str(new) if r.lower() == same else r for r in s.recent_careers]
+            if last.lower() == same:
+                last = str(new)
+        elif last.lower() == same:
+            last = ""
+        store.save(s.model_copy(update={"last_career": last, "recent_careers": recent}))
+
+    @router.post("/careers/rename")
+    def rename(body: CareerRename) -> dict[str, Any]:
+        career = _existing_file(body.path, "career")
+        if not body.name.strip():
+            raise HTTPException(422, "empty career name")
+        not_importing(career)
+        try:
+            target = rename_career(career, body.name, data_dir, jobs.log_dir)
+        except CareerFileError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        replace_in_settings(career, target)
+        return asdict(read_summary(target))
+
+    @router.get("/careers/files")
+    def files(path: str) -> list[dict[str, Any]]:
+        career = _existing_file(path, "career")
+        return [
+            {"path": str(f), "size_mb": round(f.stat().st_size / 2**20, 1)}
+            for f in career_files(career, data_dir, jobs.log_dir)
+        ]
+
+    @router.post("/careers/delete")
+    def delete(body: CareerPath) -> dict[str, Any]:
+        career = _existing_file(body.path, "career")
+        not_importing(career)
+        try:
+            deleted = delete_career(career, data_dir, jobs.log_dir)
+        except CareerFileError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        replace_in_settings(career, None)
+        return {"deleted": deleted}
 
     @router.get("/jobs/{job_id}")
     def job_status(job_id: str) -> dict[str, Any]:

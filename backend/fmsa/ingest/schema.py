@@ -1,17 +1,17 @@
-"""Turn fmsave record types into SQLite tables: one table per record type, named like the type.
+"""Turn fmsave record types into SQLite tables, the same tables `normalize()` gives in pandas.
 
-Columns are exactly `fmsave.export.column_names(<type>)`, in the same order, and values come from
-`fmsave.export.flat_rows(..., json_ready=True)`: the same flat rows `Table.to_pandas()` gives.
+One table per reader (`players`, `league_tables`, ...) plus one table per field that is a list of
+sub-records, named `<parent table>_<field>` (`league_tables_rows`, `league_tables_rows_matches`).
 
-- groups (`Player.attributes`) are flattened into prefixed columns (`attributes_crossing`), as
-  fmsave does; each group is ALSO stored as a row of its own type's table (`Attributes`);
+- columns are `fmsave.export.column_names(<type>)` without the list-of-records fields (they are
+  the child tables), in the same order, with the values of
+  `fmsave.export.flat_rows(..., json_ready=True)`: the flat rows `Table.to_pandas()` gives;
+- groups (`Player.attributes`, `LeagueTableRow.home`) are prefixed columns (`attributes_crossing`,
+  `home_points`) and are NOT tables of their own;
 - coded values become `<name>` (label) and `<name>_code` (raw number), as fmsave does;
-- tuples of records (`LeagueTable.rows`) stay a JSON column, as fmsave does, and every item is
-  ALSO stored as a row of its own type's table (`LeagueTableRow`), linked to its parent;
-- other tuples and mappings become JSON text, dates ISO text, booleans 0/1.
-
-A group whose type is read by a reader of its own (`Player.contract` -> `Contract`, read by
-`Save.contracts()`) is not stored twice: its columns stay in the parent only.
+- other tuples (`Competition.stage_ids`) and mappings are JSON text, dates ISO text, booleans 0/1;
+- key columns come first: `<reader>_idx` (position of the record in the reader) on top-level
+  tables; on child tables the keys of every ancestor plus `<field>_idx` (position in the list).
 """
 
 from __future__ import annotations
@@ -40,32 +40,29 @@ class Column:
     status: str  # fmsave field status ("verified", "unconfirmed", "computed", ...)
 
 
-@dataclass(frozen=True, slots=True)
-class Child:
-    """A field of a record stored as rows of another type's table."""
-
-    field: str
-    kind: str  # "list" (tuple of records) | "group" (one record)
-    layout: Layout
-
-
 @dataclass(slots=True)
 class Layout:
-    table: str  # = the record type's name
+    table: str  # "players", "league_tables_rows", ...
     record_type: type
-    columns: list[Column] = dataclasses.field(default_factory=list)
-    children: list[Child] = field(default_factory=list)
-    exact: bool = True  # columns come from fmsave.export (False: fallback flattening)
+    field_name: str | None = None  # the parent's field holding these records (None: top level)
+    parent: Layout | None = None
+    keys: list[str] = field(default_factory=list)  # idx columns: ancestors' + own, in order
+    columns: list[Column] = field(default_factory=list)  # fmsave columns
+    children: list[Layout] = field(default_factory=list)
+
+    @property
+    def own_key(self) -> str:
+        return self.keys[-1]
 
     @property
     def column_names(self) -> list[str]:
         return [c.name for c in self.columns]
 
     def walk(self) -> Iterator[Layout]:
-        """This layout and every descendant (a type reached twice is yielded twice)."""
+        """This layout and every descendant, parents first."""
         yield self
         for child in self.children:
-            yield from child.layout.walk()
+            yield from child.walk()
 
 
 # ---------------------------------------------------------------------------- type analysis
@@ -122,6 +119,18 @@ def _scalar_sql(tp: Any) -> SqlType:
     return ""
 
 
+def child_fields(record_type: type) -> dict[str, type]:
+    """Fields that are tuples of sub-records -> sub-record class (as `normalize()` explodes)."""
+    out: dict[str, type] = {}
+    hints = _hints(record_type)
+    for f in dataclasses.fields(record_type):
+        item = _tuple_item(_unwrap_optional(hints.get(f.name, Any)))
+        rec = _record_class(_unwrap_optional(item)) if item is not None else None
+        if rec is not None and not _is_coded(rec):
+            out[f.name] = rec
+    return out
+
+
 def _describe(cls: type, prefix: str = "", path: tuple[str, ...] = ()) -> dict[str, Column]:
     """Our own description of the flat columns of `cls` (types, paths, statuses), keyed by the
     column name fmsave uses. Only used to type and document fmsave's columns."""
@@ -161,42 +170,32 @@ def _computed(cls: type) -> tuple[str, ...]:
         return ()
 
 
-def build_layout(record_type: type, skip_groups: frozenset[type] = frozenset()) -> Layout:
-    """Layout of `record_type` and of the record types stored in tables of their own.
-
-    `skip_groups`: group types not to store as rows of their own (read by another reader).
-    """
-    layout = Layout(table=record_type.__name__, record_type=record_type)
+def build_layout(
+    record_type: type,
+    table: str,
+    *,
+    field_name: str | None = None,
+    parent: Layout | None = None,
+) -> Layout:
+    """Layout of the table `table` for `record_type` and of its child tables."""
+    own_key = f"{field_name or table}_idx"
+    keys = [*(parent.keys if parent else ()), own_key]
+    layout = Layout(table, record_type, field_name, parent, keys)
+    children = child_fields(record_type)
     described = _describe(record_type)
-    try:
-        names = fexport.column_names(record_type)
-    except (TypeError, ValueError):
-        # a type fmsave.export does not support (e.g. the experimental Fm27Span): store the
-        # top-level fields, nested values as JSON
-        layout.exact = False
-        hints = _hints(record_type)
-        for f in dataclasses.fields(record_type):
-            tp = _unwrap_optional(hints.get(f.name, Any))
-            layout.columns.append(
-                Column(f.name, _scalar_sql(tp), (f.name,), _status(record_type, f.name))
-            )
-        return layout
-    for name in names:
+    for name in fexport.column_names(record_type):
+        if name in children:
+            continue
         col = described.get(name) or Column(name, "", (name,), "")
         layout.columns.append(dataclasses.replace(col, name=name))
-
-    hints = _hints(record_type)
-    for f in dataclasses.fields(record_type):
-        tp = _unwrap_optional(hints.get(f.name, Any))
-        rec = _record_class(tp)
-        if rec is not None and not _is_coded(rec):
-            if rec not in skip_groups:
-                layout.children.append(Child(f.name, "group", build_layout(rec, skip_groups)))
-            continue
-        item = _tuple_item(tp)
-        item_rec = _record_class(_unwrap_optional(item)) if item is not None else None
-        if item_rec is not None and not _is_coded(item_rec):
-            layout.children.append(Child(f.name, "list", build_layout(item_rec, skip_groups)))
+    clash = set(keys) & set(layout.column_names)
+    if clash:
+        raise ValueError(f"{table}: key columns {sorted(clash)} clash with fmsave columns")
+    for child_field, child_type in children.items():
+        layout.children.append(
+            build_layout(child_type, f"{table}_{child_field}", field_name=child_field,
+                         parent=layout)
+        )  # fmt: skip
     return layout
 
 
@@ -250,27 +249,16 @@ def sql_value(v: Any) -> Any:
 
 
 def make_rows(layout: Layout) -> Callable[[Iterable[Any]], Iterator[tuple[Any, ...]]]:
-    """records -> flat rows (tuples, in column order) ready for SQLite."""
-    if not layout.exact:
-        attrs = layout.column_names
-
-        def fallback(records: Iterable[Any]) -> Iterator[tuple[Any, ...]]:
-            for r in records:
-                yield tuple(sql_value(getattr(r, a, None)) for a in attrs)
-
-        return fallback
-
+    """records -> flat rows (tuples of the fmsave columns, in order) ready for SQLite."""
     record_type = layout.record_type
+    names = layout.column_names
 
     def rows(records: Iterable[Any]) -> Iterator[tuple[Any, ...]]:
         for row in fexport.flat_rows(records, record_type, json_ready=True):
-            yield tuple(map(sql_value, row.values()))
+            yield tuple(sql_value(row[n]) for n in names)
 
     return rows
 
 
-def child_records(record: Any, child: Child) -> Sequence[Any]:
-    v = getattr(record, child.field, None)
-    if v is None:
-        return ()
-    return (v,) if child.kind == "group" else v
+def child_records(record: Any, child: Layout) -> Sequence[Any]:
+    return getattr(record, child.field_name or "", None) or ()

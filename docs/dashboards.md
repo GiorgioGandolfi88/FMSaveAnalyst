@@ -6,6 +6,14 @@ Le dashboard incluse sono in `backend/fmsa/dashboards/defs/` (una per file JSON)
 
 Un file con lo stesso `id` di una dashboard inclusa la sostituisce. I file non validi vengono ignorati e l'errore finisce nel log.
 
+## Creare, modificare, eliminare dall'app
+
+Nella pagina Dashboard: **Nuova dashboard**, oppure il menu "…" di ogni dashboard (**Modifica**, **Duplica**, **Elimina**, **Ripristina predefinita**). L'editor ha un modulo (titoli IT/EN, filtri, valori modificabili, widget con SQL) e una vista **JSON**. **Prova** esegue le query senza salvare e mostra righe ed errori sotto ogni widget.
+- Le dashboard tue vengono salvate come `<id>.json` nella cartella `dashboards`.
+- Modificare una dashboard inclusa crea una tua copia con lo stesso `id`, che la sostituisce.
+- Eliminare una dashboard inclusa la nasconde (elenco in `dashboards\_hidden.json`). **Ripristina predefinita** cancella la tua copia e la fa ricomparire così com'è nell'app.
+- Eliminare una dashboard tua cancella il file.
+
 ## Formato
 
 ```json
@@ -18,10 +26,10 @@ Un file con lo stesso `id` di una dashboard inclusa la sostituisce. I file non v
   "widgets": [
     {"id": "n", "type": "kpi", "span": 3, "format": "int",
      "title": {"it": "Giocatori", "en": "Players"},
-     "sql": "SELECT count(*) AS value FROM Player WHERE club_uid = :club"},
+     "sql": "SELECT count(*) AS value FROM players WHERE club_uid = :club"},
     {"id": "ca", "type": "bar", "span": 6, "horizontal": true, "x": "name", "y": "ability_current",
      "title": {"it": "Abilità attuale", "en": "Current ability"},
-     "sql": "SELECT name, ability_current FROM Player WHERE club_uid = :club ORDER BY 2 DESC LIMIT 20"}
+     "sql": "SELECT name, ability_current FROM players WHERE club_uid = :club ORDER BY 2 DESC LIMIT 20"}
   ]
 }
 ```

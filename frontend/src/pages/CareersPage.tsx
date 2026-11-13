@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Alert,
   Badge,
   Button,
@@ -6,6 +7,7 @@ import {
   Checkbox,
   Group,
   Loader,
+  Menu,
   Modal,
   Paper,
   SimpleGrid,
@@ -16,13 +18,21 @@ import {
   Title,
   Tooltip,
 } from "@mantine/core";
-import { IconFolderOpen, IconPlus, IconRefresh } from "@tabler/icons-react";
+import {
+  IconDots,
+  IconFolderOpen,
+  IconPencil,
+  IconPlus,
+  IconRefresh,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   careersApi,
   desktopApi,
   type CareerDetail,
+  type CareerFile,
   type CareerSummary,
   type ContinuityReport,
   type Job,
@@ -30,6 +40,7 @@ import {
 import ContinuityView from "../components/ContinuityView";
 import ImportLogModal from "../components/ImportLogModal";
 import JobProgress from "../components/JobProgress";
+import ReaderPicker from "../components/ReaderPicker";
 import SavePicker from "../components/SavePicker";
 
 interface Props {
@@ -54,6 +65,7 @@ function NewCareerModal({ opened, onClose, onDone }: {
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [save, setSave] = useState("");
+  const [readers, setReaders] = useState<string[] | null>(null);
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
@@ -61,6 +73,7 @@ function NewCareerModal({ opened, onClose, onDone }: {
   const reset = () => {
     setName("");
     setSave("");
+    setReaders(null);
     setJob(null);
     setError(null);
     setFinished(false);
@@ -73,7 +86,7 @@ function NewCareerModal({ opened, onClose, onDone }: {
   const start = async () => {
     setError(null);
     try {
-      setJob(await careersApi.create(name.trim(), save.trim()));
+      setJob(await careersApi.create(name.trim(), save.trim(), readers));
     } catch (e) {
       setError(String(e));
     }
@@ -104,12 +117,16 @@ function NewCareerModal({ opened, onClose, onDone }: {
               value={name}
               onChange={(e) => setName(e.currentTarget.value)}
             />
+            <ReaderPicker value={readers} onChange={setReaders} />
             {error && <Alert color="red">{error}</Alert>}
             <Group justify="flex-end">
               <Button variant="default" onClick={close}>
                 {t("careers.cancel")}
               </Button>
-              <Button disabled={!name.trim() || !save.trim()} onClick={start}>
+              <Button
+                disabled={!name.trim() || !save.trim() || readers?.length === 0}
+                onClick={start}
+              >
                 {t("careers.create")}
               </Button>
             </Group>
@@ -139,6 +156,7 @@ function UpdateCareerModal({ career, opened, onClose, onDone }: {
 }) {
   const { t } = useTranslation();
   const [save, setSave] = useState("");
+  const [readers, setReaders] = useState<string[] | null>(career.import_readers);
   const [checking, setChecking] = useState(false);
   const [report, setReport] = useState<ContinuityReport | null>(null);
   const [anyway, setAnyway] = useState(false);
@@ -149,6 +167,7 @@ function UpdateCareerModal({ career, opened, onClose, onDone }: {
   const close = () => {
     if (job && !finished) return;
     setSave("");
+    setReaders(career.import_readers);
     setReport(null);
     setAnyway(false);
     setJob(null);
@@ -170,7 +189,7 @@ function UpdateCareerModal({ career, opened, onClose, onDone }: {
   };
   const start = async () => {
     try {
-      setJob(await careersApi.importSave(career.path, save.trim()));
+      setJob(await careersApi.importSave(career.path, save.trim(), readers));
     } catch (e) {
       setError(String(e));
     }
@@ -185,7 +204,11 @@ function UpdateCareerModal({ career, opened, onClose, onDone }: {
 
   const needsConfirm = report && (report.verdict === "uncertain" || report.verdict === "different");
   const canImport =
-    report && report.verdict !== "incompatible" && (!needsConfirm || anyway) && !job;
+    report &&
+    report.verdict !== "incompatible" &&
+    (!needsConfirm || anyway) &&
+    !job &&
+    readers?.length !== 0;
 
   return (
     <Modal opened={opened} onClose={close} title={`${t("careers.update")} · ${career.name}`} size="lg">
@@ -214,6 +237,7 @@ function UpdateCareerModal({ career, opened, onClose, onDone }: {
         )}
         {error && <Alert color="red">{error}</Alert>}
         {report && !job && <ContinuityView report={report} />}
+        {!job && <ReaderPicker value={readers} onChange={setReaders} />}
         {needsConfirm && !job && (
           <Checkbox
             checked={anyway}
@@ -243,6 +267,153 @@ function UpdateCareerModal({ career, opened, onClose, onDone }: {
   );
 }
 
+// ------------------------------------------------------------------ rename / delete
+
+function RenameCareerModal({ career, onClose, onDone }: {
+  career: CareerSummary | null;
+  onClose: () => void;
+  onDone: (renamed: CareerSummary) => void;
+}) {
+  const { t } = useTranslation();
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setName(career?.name ?? "");
+    setError(null);
+  }, [career]);
+
+  const save = async () => {
+    if (!career) return;
+    setBusy(true);
+    setError(null);
+    try {
+      onDone(await careersApi.rename(career.path, name.trim()));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal opened={career !== null} onClose={onClose} title={t("careers.rename.title")}>
+      <Stack>
+        <TextInput
+          label={t("careers.name")}
+          value={name}
+          data-autofocus
+          onChange={(e) => setName(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && name.trim()) void save();
+          }}
+        />
+        <Text size="xs" c="dimmed">
+          {t("careers.rename.hint")}
+        </Text>
+        {error && <Alert color="red">{error}</Alert>}
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            {t("careers.cancel")}
+          </Button>
+          <Button loading={busy} disabled={!name.trim()} onClick={save}>
+            {t("careers.rename.save")}
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+function DeleteCareerModal({ career, onClose, onDone }: {
+  career: CareerSummary | null;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { t } = useTranslation();
+  const [files, setFiles] = useState<CareerFile[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setFiles(null);
+    setError(null);
+    if (career) {
+      careersApi.files(career.path).then(setFiles).catch((e) => setError(String(e)));
+    }
+  }, [career]);
+
+  const remove = async () => {
+    if (!career) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await careersApi.remove(career.path);
+      onDone();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal opened={career !== null} onClose={onClose} title={t("careers.delete.title")} size="lg">
+      <Stack>
+        <Text>{t("careers.delete.confirm", { name: career?.name ?? "" })}</Text>
+        <Alert color="red" variant="light">
+          {t("careers.delete.warning")}
+        </Alert>
+        {files === null ? (
+          <Loader size="sm" />
+        ) : (
+          <Stack gap={2}>
+            <Text size="sm" fw={600}>
+              {t("careers.delete.files")}
+            </Text>
+            {files.map((f) => (
+              <Text key={f.path} size="xs" ff="monospace">
+                {f.path} ({f.size_mb} MB)
+              </Text>
+            ))}
+          </Stack>
+        )}
+        {error && <Alert color="red">{error}</Alert>}
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            {t("careers.cancel")}
+          </Button>
+          <Button color="red" loading={busy} disabled={files === null} onClick={remove}>
+            {t("careers.delete.button")}
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+function CareerActions({ onRename, onDelete }: { onRename: () => void; onDelete: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <Menu position="bottom-end" withinPortal>
+      <Menu.Target>
+        <ActionIcon variant="subtle" aria-label={t("careers.actions")}>
+          <IconDots size={16} />
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item leftSection={<IconPencil size={14} />} onClick={onRename}>
+          {t("careers.rename.title")}
+        </Menu.Item>
+        <Menu.Item color="red" leftSection={<IconTrash size={14} />} onClick={onDelete}>
+          {t("careers.delete.title")}
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  );
+}
+
 // ------------------------------------------------------------------ page
 
 export default function CareersPage({ currentPath, onCareerChanged }: Props) {
@@ -253,6 +424,8 @@ export default function CareersPage({ currentPath, onCareerChanged }: Props) {
   const [updateOpen, setUpdateOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logImport, setLogImport] = useState<number | null>(null);
+  const [renaming, setRenaming] = useState<CareerSummary | null>(null);
+  const [deleting, setDeleting] = useState<CareerSummary | null>(null);
 
   const load = useCallback(() => {
     careersApi.list().then(setCareers).catch((e) => setError(String(e)));
@@ -283,6 +456,16 @@ export default function CareersPage({ currentPath, onCareerChanged }: Props) {
   }, [onCareerChanged, load]);
 
   const current = detail?.summary;
+  const afterRename = () => {
+    setRenaming(null);
+    onCareerChanged();
+    load();
+  };
+  const afterDelete = () => {
+    setDeleting(null);
+    onCareerChanged();
+    load();
+  };
 
   return (
     <Stack maw={1100}>
@@ -334,9 +517,15 @@ export default function CareersPage({ currentPath, onCareerChanged }: Props) {
           <Group justify="space-between">
             <Title order={4}>{t("careers.current")}</Title>
             {current && (
-              <Button leftSection={<IconRefresh size={16} />} onClick={() => setUpdateOpen(true)}>
-                {t("careers.update")}
-              </Button>
+              <Group gap="xs">
+                <Button leftSection={<IconRefresh size={16} />} onClick={() => setUpdateOpen(true)}>
+                  {t("careers.update")}
+                </Button>
+                <CareerActions
+                  onRename={() => setRenaming(current)}
+                  onDelete={() => setDeleting(current)}
+                />
+              </Group>
             )}
           </Group>
           {!current ? (
@@ -447,13 +636,19 @@ export default function CareersPage({ currentPath, onCareerChanged }: Props) {
                   <Table.Td>{c.imports}</Table.Td>
                   <Table.Td>{c.size_mb} MB</Table.Td>
                   <Table.Td>
-                    {isCurrent ? (
-                      <Badge>{t("careers.opened")}</Badge>
-                    ) : (
-                      <Button size="xs" variant="light" onClick={() => open(c.path)}>
-                        {t("careers.open")}
-                      </Button>
-                    )}
+                    <Group gap={4} wrap="nowrap">
+                      {isCurrent ? (
+                        <Badge>{t("careers.opened")}</Badge>
+                      ) : (
+                        <Button size="xs" variant="light" onClick={() => open(c.path)}>
+                          {t("careers.open")}
+                        </Button>
+                      )}
+                      <CareerActions
+                        onRename={() => setRenaming(c)}
+                        onDelete={() => setDeleting(c)}
+                      />
+                    </Group>
                   </Table.Td>
                 </Table.Tr>
               );
@@ -465,6 +660,8 @@ export default function CareersPage({ currentPath, onCareerChanged }: Props) {
       {current && (
         <ImportLogModal careerPath={current.path} importId={logImport} onClose={() => setLogImport(null)} />
       )}
+      <RenameCareerModal career={renaming} onClose={() => setRenaming(null)} onDone={afterRename} />
+      <DeleteCareerModal career={deleting} onClose={() => setDeleting(null)} onDone={afterDelete} />
       <NewCareerModal opened={newOpen} onClose={() => setNewOpen(false)} onDone={afterImport} />
       {current && (
         <UpdateCareerModal

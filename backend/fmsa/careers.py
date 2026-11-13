@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import contextlib
 import datetime as dt
+import hashlib
+import json
 import logging
 import re
 import sqlite3
@@ -15,7 +17,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from fmsa.db import CAREER_SUFFIX
+from fmsa.db import CAREER_SUFFIX, open_writer
 from fmsa.ingest.importer import ImportRejected, ImportResult, import_save
 
 log = logging.getLogger(__name__)
@@ -44,6 +46,7 @@ class CareerSummary:
     reference_version: str | None
     size_mb: float
     error: str | None = None
+    import_readers: list[str] | None = None  # readers chosen at the last import (None: all)
 
 
 def read_summary(path: Path) -> CareerSummary:
@@ -66,6 +69,9 @@ def read_summary(path: Path) -> CareerSummary:
             summary.name = meta.get("career_name") or path.stem
             summary.game = meta.get("game")
             summary.reference_version = meta.get("reference_version")
+            if meta.get("import_readers"):
+                with contextlib.suppress(ValueError):
+                    summary.import_readers = list(json.loads(meta["import_readers"]))
             row = conn.execute(
                 "SELECT count(*), min(game_date), max(game_date) FROM _imports WHERE status = 'ok'"
             ).fetchone()
@@ -161,6 +167,123 @@ def list_saves(folder: Path) -> list[SaveFile]:
     ]
 
 
+# ---------------------------------------------------------------------------- rename / delete
+
+
+class CareerFileError(Exception):
+    """A career cannot be renamed or deleted (name taken, file in use, ...)."""
+
+
+SIDE_FOLDERS = ("queries", "shortlists")  # per-career files kept in the data folder
+
+
+def career_side_file(data_dir: Path, career: Path, folder: str) -> Path:
+    digest = hashlib.sha1(str(career.resolve()).lower().encode()).hexdigest()[:8]
+    return data_dir / folder / f"{career.stem}-{digest}.json"
+
+
+def saved_queries_file(data_dir: Path, career: Path) -> Path:
+    return career_side_file(data_dir, career, "queries")
+
+
+def _sqlite_files(path: Path) -> list[Path]:
+    return [path, Path(f"{path}-wal"), Path(f"{path}-shm")]
+
+
+def _import_logs(path: Path, log_dir: Path | None) -> list[Path]:
+    """Text logs of the career's imports (as recorded in `_imports.log_file`, plus any file of
+    the log folder named after the career)."""
+    found: dict[str, Path] = {}
+    with contextlib.suppress(sqlite3.Error):
+        uri = f"{path.resolve().as_uri()}?mode=ro"
+        with contextlib.closing(sqlite3.connect(uri, uri=True)) as conn:
+            for (f,) in conn.execute("SELECT log_file FROM _imports WHERE log_file IS NOT NULL"):
+                p = Path(f)
+                if p.is_file():
+                    found[str(p).lower()] = p
+    if log_dir and log_dir.is_dir():
+        for p in log_dir.glob(f"{glob_escape(path.stem)}_import*.log"):
+            found.setdefault(str(p).lower(), p)
+    return list(found.values())
+
+
+def glob_escape(text: str) -> str:
+    return re.sub(r"([\[\]*?])", r"[\1]", text)
+
+
+def career_files(path: Path, data_dir: Path, log_dir: Path | None) -> list[Path]:
+    """Every file that belongs to a career: database, SQLite side files, saved queries, logs."""
+    files = [p for p in _sqlite_files(path) if p.exists()]
+    for folder in SIDE_FOLDERS:
+        side = career_side_file(data_dir, path, folder)
+        if side.is_file():
+            files.append(side)
+    return files + _import_logs(path, log_dir)
+
+
+def rename_career(path: Path, new_name: str, data_dir: Path, log_dir: Path | None) -> Path:
+    """Rename a career: its display name, its database file and the files named after it."""
+    try:
+        target = path.with_name(career_file_name(new_name))
+    except ValueError as exc:
+        raise CareerFileError(str(exc)) from exc
+    same_file = str(target).lower() == str(path).lower()
+    if target.exists() and not same_file:
+        raise CareerFileError(f"a career file named {target.name} already exists")
+    old_sides = {f: career_side_file(data_dir, path, f) for f in SIDE_FOLDERS}
+    logs = _import_logs(path, log_dir)
+    try:
+        conn = open_writer(path)
+    except sqlite3.Error as exc:
+        raise CareerFileError(str(exc)) from exc
+    try:
+        conn.execute("INSERT OR REPLACE INTO _meta VALUES ('career_name', ?)", (new_name.strip(),))
+        if not same_file:
+            for log in logs:
+                if log.name.startswith(f"{path.stem}_import"):
+                    new_log = log.with_name(target.stem + log.name[len(path.stem) :])
+                    conn.execute(
+                        "UPDATE _imports SET log_file = ? WHERE log_file = ?",
+                        (str(new_log), str(log)),
+                    )
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    finally:
+        conn.close()
+    if same_file:
+        if target.name != path.name:  # only the letter case changes
+            path.rename(target)
+        return target
+    try:
+        path.rename(target)
+    except OSError as exc:
+        raise CareerFileError(f"the career file is in use: {exc}") from exc
+    for side in ("-wal", "-shm"):
+        Path(f"{path}{side}").unlink(missing_ok=True)
+    for folder, old in old_sides.items():
+        if old.is_file():
+            old.replace(career_side_file(data_dir, target, folder))
+    for log in logs:
+        if log.name.startswith(f"{path.stem}_import"):
+            with contextlib.suppress(OSError):
+                log.rename(log.with_name(target.stem + log.name[len(path.stem) :]))
+    return target
+
+
+def delete_career(path: Path, data_dir: Path, log_dir: Path | None) -> list[str]:
+    """Delete a career database and every file that belongs to it. Returns the deleted paths."""
+    files = career_files(path, data_dir, log_dir)
+    try:
+        path.unlink()
+    except OSError as exc:
+        raise CareerFileError(f"the career file is in use: {exc}") from exc
+    deleted = [str(path)]
+    for f in files[1:]:
+        with contextlib.suppress(OSError):
+            f.unlink()
+            deleted.append(str(f))
+    return deleted
+
+
 # ---------------------------------------------------------------------------- jobs
 
 
@@ -212,6 +335,13 @@ class JobRunner:
     def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
 
+    def busy_with(self, career: Path) -> bool:
+        """An import into `career` is running."""
+        job = self._jobs.get(self._active or "")
+        return bool(
+            job and job.status == "running" and job.career_path.lower() == str(career).lower()
+        )
+
     def start(
         self,
         kind: str,
@@ -219,6 +349,7 @@ class JobRunner:
         save: Path,
         reference_db: Path | None,
         career_name: str | None = None,
+        readers: tuple[str, ...] | None = None,
     ) -> Job:
         with self._lock:
             if self._active and self._jobs[self._active].status == "running":
@@ -238,6 +369,7 @@ class JobRunner:
                     reference_db=reference_db,
                     career_name=career_name,
                     progress=progress,
+                    readers=readers,
                     log_dir=self.log_dir,
                 )
                 job.result = _result_dict(result)
